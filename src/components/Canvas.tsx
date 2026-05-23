@@ -22,14 +22,15 @@ export function Canvas({ nodes, setNodes }: Props) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     createRect(x, y);
   };
 
   return (
-    <div className={"h-full relative"} onClick={handleOnClick}>
+    <div className={"h-full relative"}>
       {nodes.map((node) => (
         <motion.div
+          drag
+          dragMomentum={false}
           key={node.id}
           layout
           style={{
@@ -48,6 +49,26 @@ export function Canvas({ nodes, setNodes }: Props) {
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={"text-black text-xs"}
+          onDragStart={(e) => {
+            const rect = (e.target as HTMLDivElement).getBoundingClientRect();
+            console.log(rect.x, rect.y);
+          }}
+          onDragEnd={(e) => {
+            const rect = (e.target as HTMLDivElement).getBoundingClientRect();
+            // update node position at current snapShot
+            setNodes(
+              nodes.map((n) => {
+                if (n.id !== node.id) return n;
+                return {
+                  ...n,
+                  position: {
+                    x: rect.x,
+                    y: rect.y,
+                  },
+                };
+              }),
+            );
+          }}
         >
           {node.id}
         </motion.div>

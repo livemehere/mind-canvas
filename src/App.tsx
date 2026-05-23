@@ -38,10 +38,15 @@ export default function App() {
     });
   };
 
-  const addSnapShot = () => {
+  const addSnapShot = (duplicateLatest?: boolean) => {
     const newSnapShot: SnapShot = {
       nodes: [],
     };
+
+    if (duplicateLatest) {
+      newSnapShot.nodes = [...currentSnapShot.nodes];
+    }
+
     setSnapShot((prev) => [...prev, newSnapShot]);
   };
 
@@ -50,14 +55,15 @@ export default function App() {
   });
 
   useHotkeys("right", () => {
-    if (step === snapShotLength - 1) {
-      flushSync(() => {
-        addSnapShot();
-        setStep((prev) => prev + 1);
-      });
-    } else {
-      setStep((prev) => prev + 1);
-    }
+    if (step === snapShotLength - 1) return;
+    setStep((prev) => prev + 1);
+  });
+
+  useHotkeys("n", () => {
+    flushSync(() => {
+      addSnapShot(true);
+      setStep(snapShotLength);
+    });
   });
 
   return (
