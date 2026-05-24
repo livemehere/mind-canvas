@@ -16,7 +16,10 @@ import {
   type Position,
   type Snapshot,
 } from "./core/nodes";
-import { requestControlFocus } from "./features/controls/focus";
+import {
+  installLevaTextareaEnterBehavior,
+  requestControlFocus,
+} from "./features/controls/focus";
 import {
   createImageRectNode,
   getImageFileFromClipboardEvent,
@@ -60,6 +63,18 @@ const regenerateNodeIds = (nodes: CanvasNode[]) =>
     id: window.crypto.randomUUID(),
   }));
 
+const isEditableElementFocused = () => {
+  const activeElement = document.activeElement;
+
+  return (
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    activeElement instanceof HTMLButtonElement ||
+    activeElement?.hasAttribute("contenteditable") === true
+  );
+};
+
 const getStepOverlayNodes = (snapshots: Snapshot[], step: number) =>
   step > 0 ? snapshots[step - 1].nodes : [];
 
@@ -83,6 +98,8 @@ export default function App() {
   const currentNodes = currentSnapShot.nodes;
   const previousNodes = getStepOverlayNodes(snapShot, step);
   const currentHistory = histories[step] ?? createStepHistory(currentNodes);
+
+  useEffect(() => installLevaTextareaEnterBehavior(), []);
 
   useEffect(() => {
     latestStateRef.current = { step, snapShot, activeNodeIds };
@@ -355,6 +372,25 @@ export default function App() {
   useHotkeys("meta+d,ctrl+d", () => duplicateSelectedNodesToNextSnapshot(), {
     preventDefault: true,
   });
+  useHotkeys(
+    "Enter",
+    () => {
+      if (isEditableElementFocused() || selectedNodes.length !== 1) {
+        return;
+      }
+
+      const selectedNode = selectedNodes[0];
+      if (selectedNode.type === "rect") {
+        requestControlFocus("rect.content");
+        return;
+      }
+
+      if (selectedNode.type === "text") {
+        requestControlFocus("text.text");
+      }
+    },
+    { preventDefault: true },
+  );
   useHotkeys("shift+o", () => setShowPreviousOverlay((prev) => !prev));
   useHotkeys("Escape", () => {
     setActiveNodeIds([]);

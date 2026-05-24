@@ -1,7 +1,19 @@
 let pendingControlFocusKey: string | null = null;
 
+const CONTROL_LABEL_BY_KEY: Record<string, string> = {
+  "rect.content": "content",
+  "text.text": "text",
+};
+
+const getControlLabel = (key: string) => CONTROL_LABEL_BY_KEY[key] ?? null;
+
 export const requestControlFocus = (key: string) => {
   pendingControlFocusKey = key;
+
+  const labelText = getControlLabel(key);
+  if (labelText) {
+    focusLevaControlByLabel(labelText);
+  }
 };
 
 export const consumeControlFocus = (key: string) => {
@@ -56,4 +68,52 @@ export const focusLevaControlByLabel = (
   };
 
   attemptFocus(attempts);
+};
+
+export const installLevaTextareaEnterBehavior = () => {
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    if (
+      event.shiftKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.ctrlKey
+    ) {
+      return;
+    }
+
+    const target = event.target;
+    const activeTextarea =
+      target instanceof HTMLTextAreaElement
+        ? target
+        : document.activeElement instanceof HTMLTextAreaElement
+          ? document.activeElement
+          : null;
+
+    if (!activeTextarea) {
+      return;
+    }
+
+    const isLevaTextarea =
+      activeTextarea.closest("[data-leva-root]") !== null ||
+      activeTextarea.closest("[class*='leva']") !== null ||
+      activeTextarea.id.startsWith("leva__");
+    if (!isLevaTextarea) {
+      return;
+    }
+
+    event.preventDefault();
+    window.setTimeout(() => {
+      activeTextarea.blur();
+    }, 0);
+  };
+
+  window.addEventListener("keydown", handleKeyDown, true);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown, true);
+  };
 };
