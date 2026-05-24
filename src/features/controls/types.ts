@@ -27,9 +27,14 @@ export type UpdateSelectedNodes = (
   options?: UpdateSelectedNodesOptions,
 ) => void;
 
-export interface BaseSelectionControlsProps {
+export interface SelectionControlsBaseProps {
   nodes: CanvasNode[];
   updateSelectedNodes: UpdateSelectedNodes;
+}
+
+export interface BaseSelectionControlsProps extends SelectionControlsBaseProps {
+  linkedNodeIds: string[];
+  onDetachLinkedNodes: () => void;
 }
 
 export interface CanvasSize {

@@ -96,7 +96,10 @@ const getEnteringNodeIds = (
   const previousNodeIds = new Set(previousNodes.map((node) => node.id));
 
   return nextNodes
-    .filter((node) => !previousNodeIds.has(node.id))
+    .filter(
+      (node) =>
+        node.replayEntranceOnStepChange || !previousNodeIds.has(node.id),
+    )
     .map((node) => node.id);
 };
 
@@ -500,6 +503,24 @@ export default function App() {
     () => currentNodes.filter((node) => activeNodeIds.includes(node.id)),
     [activeNodeIds, currentNodes],
   );
+  const linkedNodeIds = useMemo(() => {
+    if (activeNodeIds.length === 0) {
+      return [];
+    }
+
+    const activeNodeIdSet = new Set(activeNodeIds);
+
+    return currentNodes
+      .filter((node) => activeNodeIdSet.has(node.id))
+      .filter((node) =>
+        snapShot.some(
+          (snapshot, snapshotIndex) =>
+            snapshotIndex !== step &&
+            snapshot.nodes.some((snapshotNode) => snapshotNode.id === node.id),
+        ),
+      )
+      .map((node) => node.id);
+  }, [activeNodeIds, currentNodes, snapShot, step]);
 
   const copySelectedNodes = async () => {
     if (selectedNodes.length === 0) {
@@ -572,6 +593,37 @@ export default function App() {
     goToStep(targetStep);
     setActiveNodeIds(selectedNodes.map((node) => node.id));
     toast.success("Copied to next snapshot");
+  };
+
+  const detachLinkedSelectedNodes = () => {
+    if (linkedNodeIds.length === 0) {
+      toast.warning("No linked nodes to detach");
+      return;
+    }
+
+    const detachedNodeIdMap = new Map(
+      linkedNodeIds.map((nodeId) => [nodeId, window.crypto.randomUUID()] as const),
+    );
+
+    setCurrentSnapShotNodes(
+      currentNodes.map((node) => {
+        const detachedNodeId = detachedNodeIdMap.get(node.id);
+        if (!detachedNodeId) {
+          return node;
+        }
+
+        return {
+          ...node,
+          id: detachedNodeId,
+        };
+      }),
+    );
+    setActiveNodeIds(
+      activeNodeIds.map((nodeId) => detachedNodeIdMap.get(nodeId) ?? nodeId),
+    );
+    toast.success(
+      linkedNodeIds.length === 1 ? "Node detached" : "Nodes detached",
+    );
   };
 
   useHotkeys(
@@ -758,18 +810,6 @@ export default function App() {
             </span>
             <button
               type="button"
-              onClick={() => setSyncMatchingIdEdits((prev) => !prev)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
-                syncMatchingIdEdits
-                  ? "bg-purple-600 text-white"
-                  : "bg-white/6 text-white/60 hover:bg-white/12 hover:text-white"
-              }`}
-              title="Apply final edits to nodes with the same id across snapshots"
-            >
-              Same ID
-            </button>
-            <button
-              type="button"
               onClick={removeCurrentStep}
               disabled={snapShotLength === 1}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
@@ -787,6 +827,7 @@ export default function App() {
               showControls={false}
               activeNodeIds={[]}
               entranceNodeIds={[]}
+              linkedNodeIds={[]}
             />
           ) : null}
         </div>
@@ -798,6 +839,8 @@ export default function App() {
             setActiveNodeIds={setActiveNodeIds}
             activeToolId={activeToolId}
             entranceNodeIds={stepEntranceNodeIds}
+            linkedNodeIds={linkedNodeIds}
+            onDetachLinkedNodes={detachLinkedSelectedNodes}
             onClickBackground={handleClickBackground}
             onNodeDoubleClick={handleNodeDoubleClick}
           />
@@ -805,6 +848,8 @@ export default function App() {
         <CanvasToolbar
           activeToolId={activeToolId}
           setActiveToolId={setActiveToolId}
+          syncMatchingIdEdits={syncMatchingIdEdits}
+          setSyncMatchingIdEdits={setSyncMatchingIdEdits}
           showPreviousOverlay={showPreviousOverlay}
           setShowPreviousOverlay={setShowPreviousOverlay}
           autoAddSnapshotOnAdvance={autoAddSnapshotOnAdvance}

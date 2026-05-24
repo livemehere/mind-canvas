@@ -26,6 +26,8 @@ const TOOL_ACTIONS: ToolAction[] = [
 interface Props {
   activeToolId: CanvasToolId | null;
   setActiveToolId: React.Dispatch<React.SetStateAction<CanvasToolId>>;
+  syncMatchingIdEdits: boolean;
+  setSyncMatchingIdEdits: React.Dispatch<React.SetStateAction<boolean>>;
   showPreviousOverlay: boolean;
   setShowPreviousOverlay: React.Dispatch<React.SetStateAction<boolean>>;
   autoAddSnapshotOnAdvance: boolean;
@@ -39,6 +41,8 @@ interface Props {
 export function CanvasToolbar({
   activeToolId,
   setActiveToolId,
+  syncMatchingIdEdits,
+  setSyncMatchingIdEdits,
   showPreviousOverlay,
   setShowPreviousOverlay,
   autoAddSnapshotOnAdvance,
@@ -61,6 +65,17 @@ export function CanvasToolbar({
             {action.icon}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setSyncMatchingIdEdits((prev) => !prev)}
+          className={cn(
+            "rounded-xl bg-neutral-800/90 px-2.5 py-2 text-[11px] font-semibold text-white/80 transition hover:opacity-80 active:scale-90",
+            syncMatchingIdEdits && "bg-purple-600 text-white",
+          )}
+          title="Apply final edits to nodes with the same id across snapshots"
+        >
+          Same ID
+        </button>
         <button
           onClick={() => setShowPreviousOverlay((prev) => !prev)}
           className={cn(

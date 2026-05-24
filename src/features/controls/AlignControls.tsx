@@ -12,9 +12,9 @@ import {
   type AlignAxis,
   type AlignMode,
 } from "./alignment";
-import { type BaseSelectionControlsProps } from "./types";
+import { type SelectionControlsBaseProps } from "./types";
 
-interface Props extends BaseSelectionControlsProps {
+interface Props extends SelectionControlsBaseProps {
   canvasSize: { width: number; height: number };
 }
 

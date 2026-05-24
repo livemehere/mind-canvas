@@ -52,6 +52,7 @@ export interface BaseNode {
   zIndex: number;
   transition: NodeTransition;
   entranceAnimation: EntranceAnimation;
+  replayEntranceOnStepChange: boolean;
   bgColor: string;
   radius: number;
   borderWidth: number;
@@ -98,6 +99,7 @@ export const DEFAULT_RECT_NODE: RectNode = {
   zIndex: 0,
   transition: "spring",
   entranceAnimation: "pop",
+  replayEntranceOnStepChange: false,
   content: "",
   contentTypography: {
     color: "#000000",
@@ -125,6 +127,7 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   zIndex: 0,
   transition: "spring",
   entranceAnimation: "pop",
+  replayEntranceOnStepChange: false,
   text: "Text",
   color: "#ffffff",
   paddingX: 0,

@@ -44,6 +44,8 @@ export interface CanvasSurfaceProps {
   onNodeDoubleClick?: (node: CanvasNode) => void;
   canvasSize?: CanvasSize;
   entranceNodeIds?: string[];
+  linkedNodeIds?: string[];
+  onDetachLinkedNodes?: () => void;
 }
 
 export function CanvasSurface({
@@ -58,6 +60,8 @@ export function CanvasSurface({
   onNodeDoubleClick = NOOP,
   canvasSize = { width: 800, height: 600 },
   entranceNodeIds = [],
+  linkedNodeIds = [],
+  onDetachLinkedNodes = NOOP,
 }: CanvasSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<Position | null>(null);
@@ -465,6 +469,8 @@ export function CanvasSurface({
           nodes={selectedNodes}
           updateSelectedNodes={updateSelectedNodes}
           canvasSize={measuredCanvasSize}
+          linkedNodeIds={linkedNodeIds}
+          onDetachLinkedNodes={onDetachLinkedNodes}
         />
       ) : null}
       {nodes.map((node) => (

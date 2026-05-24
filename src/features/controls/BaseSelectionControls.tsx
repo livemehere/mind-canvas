@@ -1,4 +1,4 @@
-import { useControls } from "leva";
+import { button, useControls } from "leva";
 import { useRef } from "react";
 import {
   ENTRANCE_ANIMATIONS,
@@ -24,9 +24,15 @@ import {
 export function BaseSelectionControls({
   nodes,
   updateSelectedNodes,
+  linkedNodeIds,
+  onDetachLinkedNodes,
 }: BaseSelectionControlsProps) {
   const sessionsRef = useRef<Record<string, NumericEditSession>>({});
   const isEditingRef = useRef(0);
+  const linkedAcrossSnapshots = getSharedValue(
+    nodes.map((node) => linkedNodeIds.includes(node.id)),
+    false,
+  );
 
   const positionX = getSharedValue(
     nodes.map((node) => node.position.x),
@@ -75,6 +81,10 @@ export function BaseSelectionControls({
   const entranceAnimation = getSharedValue<EntranceAnimation>(
     nodes.map((node) => node.entranceAnimation),
     "fade",
+  );
+  const replayEntranceOnStepChange = getSharedValue(
+    nodes.map((node) => node.replayEntranceOnStepChange),
+    false,
   );
 
   const applyNumericChange = (
@@ -487,9 +497,47 @@ export function BaseSelectionControls({
           );
         },
       },
+      replayEntranceOnStepChange: {
+        value: replayEntranceOnStepChange.value,
+        hint: replayEntranceOnStepChange.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextReplayEntranceOnStepChange: boolean,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) => ({
+              ...node,
+              replayEntranceOnStepChange: nextReplayEntranceOnStepChange,
+            }),
+            { commitHistory: false },
+          );
+        },
+      },
+      linkedAcrossSnapshots: {
+        value: linkedAcrossSnapshots.mixed
+          ? "mixed"
+          : linkedAcrossSnapshots.value
+            ? "linked"
+            : "detached",
+        editable: false,
+      },
+      detachSharedId: button(onDetachLinkedNodes, {
+        disabled: linkedNodeIds.length === 0,
+      }),
     }),
     [
       nodes,
+      linkedNodeIds,
+      onDetachLinkedNodes,
+      linkedAcrossSnapshots.value,
+      linkedAcrossSnapshots.mixed,
       positionX.value,
       positionX.mixed,
       positionY.value,
@@ -514,6 +562,8 @@ export function BaseSelectionControls({
       transition.mixed,
       entranceAnimation.value,
       entranceAnimation.mixed,
+      replayEntranceOnStepChange.value,
+      replayEntranceOnStepChange.mixed,
     ],
   );
 
@@ -532,6 +582,12 @@ export function BaseSelectionControls({
       radius: radius.mixed ? 0 : radius.value,
       transition: transition.value,
       entranceAnimation: entranceAnimation.value,
+      replayEntranceOnStepChange: replayEntranceOnStepChange.value,
+      linkedAcrossSnapshots: linkedAcrossSnapshots.mixed
+        ? "mixed"
+        : linkedAcrossSnapshots.value
+          ? "linked"
+          : "detached",
     },
     isEditingRef,
   );

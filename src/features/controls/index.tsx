@@ -16,12 +16,16 @@ interface Props {
   nodes: CanvasNode[];
   updateSelectedNodes: UpdateSelectedNodes;
   canvasSize: CanvasSize;
+  linkedNodeIds: string[];
+  onDetachLinkedNodes: () => void;
 }
 
 export function SelectedNodeControls({
   nodes,
   updateSelectedNodes,
   canvasSize,
+  linkedNodeIds,
+  onDetachLinkedNodes,
 }: Props) {
   const rectNodes = nodes.filter(
     (node): node is RectNode => node.type === "rect",
@@ -44,6 +48,8 @@ export function SelectedNodeControls({
       <BaseSelectionControls
         nodes={nodes}
         updateSelectedNodes={updateSelectedNodes}
+        linkedNodeIds={linkedNodeIds}
+        onDetachLinkedNodes={onDetachLinkedNodes}
       />
       {rectNodes.length > 0 ? (
         <RectSelectionControls
