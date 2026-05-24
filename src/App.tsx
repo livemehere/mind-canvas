@@ -1,45 +1,31 @@
 import { Canvas } from "./components/Canvas";
 import { useState } from "react";
-import { type CNode, type Position, RECT, type SnapShot } from "./core/CNode";
+import {
+  type Types,
+  type Position,
+  DEFAULT_RECT,
+  type SnapShot,
+  DEFAULT_TEXT,
+} from "./core/types";
 import { useHotkeys } from "react-hotkeys-hook";
 import { flushSync } from "react-dom";
 import { Toolbar, type ToolId } from "./components/Toolbar";
 import { Leva } from "leva";
 
 export default function App() {
+  // step, snapshot
   const [step, setStep] = useState(0);
   const [snapShot, setSnapShot] = useState<SnapShot[]>([
     {
       nodes: [],
     },
-    // {
-    //   nodes: [
-    //     {
-    //       ...RECT,
-    //       position: { x: 500, y: 500 },
-    //       content: "HELLO",
-    //     },
-    //   ],
-    // },
-    // {
-    //   nodes: [
-    //     {
-    //       ...RECT,
-    //       position: { x: 800, y: 500 },
-    //       scale: 2,
-    //       content: "WORLD",
-    //     },
-    //   ],
-    // },
   ]);
-  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [activeToolId, setActiveToolId] = useState<ToolId>("select");
-
   const snapShotLength = snapShot.length;
-
   const currentSnapShot = snapShot[step];
+
+  // nodes, setNodes, removeNode
   const currentNodes = currentSnapShot.nodes;
-  const setCurrentSnapShotNodes = (nodes: CNode[]) => {
+  const setCurrentSnapShotNodes = (nodes: Types[]) => {
     setSnapShot((prev) => {
       const newSnapShot = [...prev];
       newSnapShot[step] = { nodes };
@@ -56,18 +42,35 @@ export default function App() {
     };
 
     if (duplicateLatest) {
-      newSnapShot.nodes = [...currentSnapShot.nodes];
+      newSnapShot.nodes = [...currentNodes];
     }
 
     setSnapShot((prev) => [...prev, newSnapShot]);
   };
+
+  // states
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [activeToolId, setActiveToolId] = useState<ToolId>("select");
 
   const createRect = (x: number, y: number) => {
     const id = window.crypto.randomUUID();
     setCurrentSnapShotNodes([
       ...currentNodes,
       {
-        ...RECT,
+        ...DEFAULT_RECT,
+        id,
+        position: { x, y },
+      },
+    ]);
+    return id;
+  };
+
+  const createText = (x: number, y: number) => {
+    const id = window.crypto.randomUUID();
+    setCurrentSnapShotNodes([
+      ...currentNodes,
+      {
+        ...DEFAULT_TEXT,
         id,
         position: { x, y },
       },
@@ -84,6 +87,13 @@ export default function App() {
       case "rect": {
         const id = createRect(position.x, position.y);
         setActiveNodeId(id);
+        setActiveToolId("select");
+        break;
+      }
+      case "text": {
+        const id = createText(position.x, position.y);
+        setActiveNodeId(id);
+        setActiveToolId("select");
         break;
       }
       default:
@@ -93,6 +103,7 @@ export default function App() {
 
   useHotkeys("q", () => setActiveToolId("select"));
   useHotkeys("w", () => setActiveToolId("rect"));
+  useHotkeys("e", () => setActiveToolId("text"));
   useHotkeys("Escape", () => {
     setActiveNodeId(null);
     setActiveToolId("select");

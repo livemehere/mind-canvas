@@ -1,11 +1,11 @@
 import { motion } from "motion/react";
-import { type CNode, type Position } from "../core/CNode";
-import { useMemo, useState } from "react";
+import { type Types, type Position, type TextNode } from "../core/types";
+import { useMemo } from "react";
 import { useControls } from "leva";
 
 export interface Props {
-  nodes: CNode[];
-  setNodes: (newNodes: CNode[]) => void;
+  nodes: Types[];
+  setNodes: (newNodes: Types[]) => void;
   activeNodeId: string | null;
   setActiveNodeId: (id: string | null) => void;
   onClickBackground: (position: Position) => void;
@@ -23,26 +23,11 @@ export function Canvas({
     [nodes, activeNodeId],
   );
 
+  const activeTextNode = activeNode?.type === "text" ? activeNode : null;
+
   useControls(
     `Active Node (${activeNode ? activeNode.id : "None"})`,
     {
-      color: {
-        value: activeNode?.bgColor ?? "#ffffff",
-        onChange: (color) => {
-          if (activeNode) {
-            console.log("change", color);
-            updateNode({ ...activeNode, bgColor: color });
-          }
-        },
-      },
-      content: {
-        value: activeNode?.content ?? "",
-        onChange: (content) => {
-          if (activeNode) {
-            updateNode({ ...activeNode, content });
-          }
-        },
-      },
       scale: {
         value: activeNode?.scale ?? 1,
         step: 0.1,
@@ -52,13 +37,80 @@ export function Canvas({
           }
         },
       },
+      ...(activeNode?.type === "rect"
+        ? {
+            bgColor: {
+              value: activeNode.bgColor,
+              onChange: (bgColor: string) => {
+                updateNode({ ...activeNode, bgColor });
+              },
+            },
+          }
+        : {}),
+      ...(activeTextNode
+        ? {
+            text: {
+              value: activeTextNode.text,
+              onChange: (text: string) => {
+                updateNode({ ...activeTextNode, text });
+              },
+            },
+            color: {
+              value: activeTextNode.color,
+              onChange: (color: string) => {
+                updateNode({ ...activeTextNode, color });
+              },
+            },
+            fontSize: {
+              value: activeTextNode.typography.fontSize,
+              step: 1,
+              min: 8,
+              onChange: (fontSize: number) => {
+                updateNode({
+                  ...activeTextNode,
+                  typography: { ...activeTextNode.typography, fontSize },
+                });
+              },
+            },
+          }
+        : {}),
     },
     [activeNode],
   );
 
-  const updateNode = (node: CNode) => {
+  const updateNode = (node: Types) => {
     setNodes(nodes.map((n) => (n.id === node.id ? node : n)));
   };
+
+  const getNodeTransition = (node: Types) => {
+    if (activeNode?.id === node.id) {
+      return { duration: 0 };
+    }
+
+    if (node.transition?.type === "tween") {
+      return {
+        type: "tween" as const,
+        duration: node.transition.duration ?? 0.25,
+      };
+    }
+
+    return {
+      type: "spring" as const,
+      stiffness: node.transition?.stiffness ?? 100,
+      damping: node.transition?.damping ?? 30,
+    };
+  };
+
+  const getTextStyles = (node: TextNode) => ({
+    color: node.color,
+    fontSize: node.typography.fontSize,
+    fontFamily: node.typography.fontFamily,
+    fontWeight: node.typography.fontWeight,
+    lineHeight: node.typography.lineHeight,
+    letterSpacing: node.typography.letterSpacing,
+    textAlign: node.typography.textAlign,
+    whiteSpace: "pre-wrap" as const,
+  });
 
   return (
     <div
@@ -81,7 +133,7 @@ export function Canvas({
             left: 0,
             top: 0,
             ...(activeNode?.id === node.id && {
-              outline: "2px solid #ff0000",
+              outline: "2px solid #ffff00",
             }),
           }}
           initial={false}
@@ -89,23 +141,24 @@ export function Canvas({
             x: node.position.x,
             y: node.position.y,
             scale: node.scale,
-            width: node.size.width,
-            height: node.size.height,
-            backgroundColor: node.bgColor,
+            opacity: node.opacity ?? 1,
+            rotate: node.rotate ?? 0,
+            ...(node.type === "rect"
+              ? {
+                  width: node.size.width,
+                  height: node.size.height,
+                  backgroundColor: node.bgColor,
+                }
+              : {}),
+            ...(node.type === "text" ? { color: node.color } : {}),
           }}
-          transition={
-            activeNode?.id === node.id
-              ? { duration: 0 }
-              : { type: "spring", stiffness: 100, damping: 30 }
-          }
-          className={"text-black text-xs"}
+          transition={getNodeTransition(node)}
+          className={node.type === "text" ? "" : "text-black text-xs"}
           onClick={(e) => {
             e.stopPropagation();
             setActiveNodeId(node.id);
-            console.log(1);
           }}
           onDragEnd={(_, info) => {
-            // update node position at current snapShot
             setNodes(
               nodes.map((n) => {
                 if (n.id !== node.id) return n;
@@ -120,7 +173,9 @@ export function Canvas({
             );
           }}
         >
-          {node.content}
+          {node.type === "text" ? (
+            <div style={getTextStyles(node)}>{node.text}</div>
+          ) : null}
         </motion.div>
       ))}
     </div>

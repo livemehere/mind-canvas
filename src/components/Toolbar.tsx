@@ -1,7 +1,7 @@
-import { MousePointer2, Square } from "lucide-react";
+import { MousePointer2, Square, Type } from "lucide-react";
 import { cn } from "../utils/cn";
 
-export type ToolId = "select" | "rect";
+export type ToolId = "select" | "rect" | "text";
 
 interface Action {
   id: ToolId;
@@ -16,6 +16,10 @@ const ACTIONS: Action[] = [
   {
     id: "rect",
     icon: <Square />,
+  },
+  {
+    id: "text",
+    icon: <Type />,
   },
 ];
 
