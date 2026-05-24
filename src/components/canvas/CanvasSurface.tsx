@@ -15,7 +15,7 @@ import {
 } from "../../features/selection/helpers";
 
 import { SelectionOverlay } from "../../features/selection/SelectionOverlay";
-import { type CanvasToolId } from "./CanvasToolbar";
+import { type CanvasToolId } from "./types";
 import { SelectedNodeControls } from "../../features/controls";
 import {
   type CanvasSize,

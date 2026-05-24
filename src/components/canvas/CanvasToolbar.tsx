@@ -1,7 +1,6 @@
 import { Eye, EyeOff, MousePointer2, Square, Type } from "lucide-react";
 import { cn } from "../../utils/cn";
-
-export type CanvasToolId = "select" | "rect" | "text";
+import { type CanvasToolId } from "./types";
 
 interface ToolAction {
   id: CanvasToolId;
