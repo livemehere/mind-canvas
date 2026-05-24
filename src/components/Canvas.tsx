@@ -1,17 +1,29 @@
 import { motion } from "motion/react";
 import { type CNode, RECT } from "../core/CNode";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useControls } from "leva";
 
 export interface Props {
   nodes: CNode[];
   setNodes: (newNodes: CNode[]) => void;
+  activeNodeId: string | null;
+  setActiveNodeId: (id: string | null) => void;
 }
 
-export function Canvas({ nodes, setNodes }: Props) {
-  const [activeNode, setActiveNode] = useState<CNode | null>(null);
+export function Canvas({
+  nodes,
+  setNodes,
+  activeNodeId,
+  setActiveNodeId,
+}: Props) {
+  const activeNode = useMemo(
+    () => nodes.find((n) => n.id === activeNodeId) ?? null,
+    [nodes, activeNodeId],
+  );
+  const [transitionEnabled, setTransitionEnabled] = useState(true);
+
   useControls(
-    "Active Node",
+    `Active Node (${activeNode ? activeNode.id : "None"})`,
     {
       color: {
         value: activeNode?.bgColor ?? "#ffffff",
@@ -22,10 +34,13 @@ export function Canvas({ nodes, setNodes }: Props) {
           }
         },
       },
+      transition: {
+        value: true,
+        onChange: (v: boolean) => setTransitionEnabled(v),
+      },
     },
     [activeNode],
   );
-  console.log(activeNode);
 
   const updateNode = (node: CNode) => {
     setNodes(nodes.map((n) => (n.id === node.id ? node : n)));
@@ -61,6 +76,9 @@ export function Canvas({ nodes, setNodes }: Props) {
             position: "absolute",
             left: 0,
             top: 0,
+            ...(activeNode?.id === node.id && {
+              outline: "2px solid #ff0000",
+            }),
           }}
           initial={false}
           animate={{
@@ -71,10 +89,14 @@ export function Canvas({ nodes, setNodes }: Props) {
             height: node.size.height,
             backgroundColor: node.bgColor,
           }}
-          transition={{ type: "spring", stiffness: 100, damping: 30 }}
+          transition={
+            transitionEnabled
+              ? { type: "spring", stiffness: 100, damping: 30 }
+              : { duration: 0 }
+          }
           className={"text-black text-xs"}
           onClick={() => {
-            setActiveNode(node);
+            setActiveNodeId(node.id);
           }}
           onDragEnd={(_, info) => {
             // update node position at current snapShot
@@ -87,7 +109,6 @@ export function Canvas({ nodes, setNodes }: Props) {
                     x: n.position.x + info.offset.x,
                     y: n.position.y + info.offset.y,
                   },
-                  bgColor: "#ff0000",
                 };
               }),
             );

@@ -1,5 +1,5 @@
 import { Canvas } from "./components/Canvas";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type CNode, RECT, type SnapShot } from "./core/CNode";
 import { useHotkeys } from "react-hotkeys-hook";
 import { flushSync } from "react-dom";
@@ -27,6 +27,7 @@ export default function App() {
       ],
     },
   ]);
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
 
   const snapShotLength = snapShot.length;
 
@@ -54,16 +55,19 @@ export default function App() {
 
   useHotkeys("left", () => {
     setStep((prev) => Math.max(0, prev - 1));
+    setActiveNodeId(null);
   });
 
   useHotkeys("right", () => {
     if (step === snapShotLength - 1) return;
     setStep((prev) => prev + 1);
+    setActiveNodeId(null);
   });
 
   useHotkeys("n", () => {
     flushSync(() => {
       addSnapShot(true);
+      setActiveNodeId(null);
       setStep(snapShotLength);
     });
   });
@@ -73,7 +77,12 @@ export default function App() {
       <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
         Step : {step} / {snapShotLength - 1}
       </div>
-      <Canvas nodes={currentNodes} setNodes={setCurrentSnapShotNodes} />
+      <Canvas
+        nodes={currentNodes}
+        setNodes={setCurrentSnapShotNodes}
+        activeNodeId={activeNodeId}
+        setActiveNodeId={setActiveNodeId}
+      />
     </div>
   );
 }
