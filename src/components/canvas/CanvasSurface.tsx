@@ -43,6 +43,7 @@ export interface CanvasSurfaceProps {
   showControls?: boolean;
   onNodeDoubleClick?: (node: CanvasNode) => void;
   canvasSize?: CanvasSize;
+  entranceNodeIds?: string[];
 }
 
 export function CanvasSurface({
@@ -56,6 +57,7 @@ export function CanvasSurface({
   showControls = !viewOnly,
   onNodeDoubleClick = NOOP,
   canvasSize = { width: 800, height: 600 },
+  entranceNodeIds = [],
 }: CanvasSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<Position | null>(null);
@@ -471,6 +473,7 @@ export function CanvasSurface({
           node={node}
           isSelected={activeNodeIds.includes(node.id)}
           canDrag={!viewOnly && activeToolId === "select"}
+          shouldPlayEntranceAnimation={entranceNodeIds.includes(node.id)}
           isPreviewing={dragPreview?.nodeIds.includes(node.id) === true}
           previewOffset={
             dragPreview && dragPreview.nodeIds.includes(node.id)

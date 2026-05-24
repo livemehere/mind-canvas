@@ -71,9 +71,7 @@ const regenerateNodeIds = (nodes: CanvasNode[]) =>
     id: window.crypto.randomUUID(),
   }));
 
-const isPlainObject = (
-  value: unknown,
-): value is Record<string, unknown> =>
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isEditableElementFocused = () => {
@@ -90,6 +88,17 @@ const isEditableElementFocused = () => {
 
 const getStepOverlayNodes = (snapshots: Snapshot[], step: number) =>
   step > 0 ? snapshots[step - 1].nodes : [];
+
+const getEnteringNodeIds = (
+  previousNodes: CanvasNode[],
+  nextNodes: CanvasNode[],
+) => {
+  const previousNodeIds = new Set(previousNodes.map((node) => node.id));
+
+  return nextNodes
+    .filter((node) => !previousNodeIds.has(node.id))
+    .map((node) => node.id);
+};
 
 const createChangedFieldPatch = (
   baseline: unknown,
@@ -138,7 +147,10 @@ const applyChangedFieldPatch = <T,>(target: T, patch: unknown): T => {
   return structuredClone(patch) as T;
 };
 
-const getChangedNodePatchMap = (baselineNodes: CanvasNode[], nextNodes: CanvasNode[]) => {
+const getChangedNodePatchMap = (
+  baselineNodes: CanvasNode[],
+  nextNodes: CanvasNode[],
+) => {
   const baselineNodeMap = new Map(
     baselineNodes.map((node) => [node.id, node] as const),
   );
@@ -161,10 +173,9 @@ const getChangedNodePatchMap = (baselineNodes: CanvasNode[], nextNodes: CanvasNo
   return changedNodePatchMap;
 };
 
-const oncePerKeypress = (
-  handler: () => void,
-  options?: { preventDefault?: boolean },
-) => (event: KeyboardEvent) => {
+const oncePerKeypress =
+  (handler: () => void, options?: { preventDefault?: boolean }) =>
+  (event: KeyboardEvent) => {
     if (event.repeat) {
       return;
     }
@@ -189,6 +200,7 @@ export default function App() {
   const [syncMatchingIdEdits, setSyncMatchingIdEdits] = useState(false);
   const [showPreviousOverlay, setShowPreviousOverlay] = useState(true);
   const [activeNodeIds, setActiveNodeIds] = useState<string[]>([]);
+  const [stepEntranceNodeIds, setStepEntranceNodeIds] = useState<string[]>([]);
   const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
   const latestStateRef = useRef({
     step: 0,
@@ -291,7 +303,8 @@ export default function App() {
 
       affectedSteps.forEach((stepIndex) => {
         const stepNodes = nextSnapshots[stepIndex]?.nodes ?? [];
-        const stepHistory = nextHistories[stepIndex] ?? createStepHistory(stepNodes);
+        const stepHistory =
+          nextHistories[stepIndex] ?? createStepHistory(stepNodes);
         const baseSnapshots = stepHistory.snapshots.slice(
           0,
           stepHistory.index + 1,
@@ -334,18 +347,19 @@ export default function App() {
     );
   };
 
-  const addSnapShot = (duplicateLatest?: boolean) => {
-    const nextNodes = duplicateLatest ? cloneNodes(currentNodes) : [];
+  const goToStep = (nextStep: number, nextNodesOverride?: CanvasNode[]) => {
+    const { step: currentStep, snapShot: snapshots } = latestStateRef.current;
+    const previousNodes = snapshots[currentStep]?.nodes ?? [];
+    const nextNodes = nextNodesOverride ?? snapshots[nextStep]?.nodes ?? [];
 
-    setSnapShot((prev) => [...prev, createSnapshot(nextNodes)]);
-    setHistories((prev) => [...prev, createStepHistory(nextNodes)]);
-    toast.success("Snapshot added");
+    setStepEntranceNodeIds(getEnteringNodeIds(previousNodes, nextNodes));
+    setStep(nextStep);
+    setActiveNodeIds([]);
   };
 
   const goToNextStep = () => {
     if (step < snapShotLength - 1) {
-      setStep((prev) => prev + 1);
-      setActiveNodeIds([]);
+      goToStep(step + 1);
       return;
     }
 
@@ -354,11 +368,17 @@ export default function App() {
       return;
     }
 
+    const nextNodes = duplicateNodesIntoNewSnapshot ? cloneNodes(currentNodes) : [];
+
     flushSync(() => {
-      addSnapShot(duplicateNodesIntoNewSnapshot);
+      setSnapShot((prev) => [...prev, createSnapshot(nextNodes)]);
+      setHistories((prev) => [...prev, createStepHistory(nextNodes)]);
+      setStepEntranceNodeIds(nextNodes.map((node) => node.id));
       setActiveNodeIds([]);
       setStep(snapShotLength);
     });
+
+    toast.success("Snapshot added");
   };
 
   const removeCurrentStep = () => {
@@ -372,6 +392,7 @@ export default function App() {
 
     setSnapShot((prev) => prev.filter((_, index) => index !== targetStep));
     setHistories((prev) => prev.filter((_, index) => index !== targetStep));
+    setStepEntranceNodeIds([]);
     setStep(nextStep);
     setActiveNodeIds([]);
     toast.success("Snapshot removed");
@@ -548,14 +569,23 @@ export default function App() {
       ...targetNodes,
       ...cloneNodes(selectedNodes),
     ]);
-    setStep(targetStep);
+    goToStep(targetStep);
     setActiveNodeIds(selectedNodes.map((node) => node.id));
     toast.success("Copied to next snapshot");
   };
 
-  useHotkeys("q", oncePerKeypress(() => setActiveToolId("select")));
-  useHotkeys("w", oncePerKeypress(() => setActiveToolId("rect")));
-  useHotkeys("e", oncePerKeypress(() => setActiveToolId("text")));
+  useHotkeys(
+    "q",
+    oncePerKeypress(() => setActiveToolId("select")),
+  );
+  useHotkeys(
+    "w",
+    oncePerKeypress(() => setActiveToolId("rect")),
+  );
+  useHotkeys(
+    "e",
+    oncePerKeypress(() => setActiveToolId("text")),
+  );
   useHotkeys(
     "meta+z,ctrl+z",
     oncePerKeypress(() => undo(), { preventDefault: true }),
@@ -580,21 +610,24 @@ export default function App() {
   );
   useHotkeys(
     "Enter",
-    oncePerKeypress(() => {
-      if (isEditableElementFocused() || selectedNodes.length !== 1) {
-        return;
-      }
+    oncePerKeypress(
+      () => {
+        if (isEditableElementFocused() || selectedNodes.length !== 1) {
+          return;
+        }
 
-      const selectedNode = selectedNodes[0];
-      if (selectedNode.type === "rect") {
-        requestControlFocus("rect.content");
-        return;
-      }
+        const selectedNode = selectedNodes[0];
+        if (selectedNode.type === "rect") {
+          requestControlFocus("rect.content");
+          return;
+        }
 
-      if (selectedNode.type === "text") {
-        requestControlFocus("text.text");
-      }
-    }, { preventDefault: true }),
+        if (selectedNode.type === "text") {
+          requestControlFocus("text.text");
+        }
+      },
+      { preventDefault: true },
+    ),
   );
   useHotkeys(
     "shift+o",
@@ -621,14 +654,18 @@ export default function App() {
   useHotkeys(
     "1",
     oncePerKeypress(() => {
-      setStep((prev) => Math.max(0, prev - 1));
-      setActiveNodeIds([]);
       if (step === 0) {
         toast.warning("Already at the first step");
+        return;
       }
+
+      goToStep(step - 1);
     }),
   );
-  useHotkeys("2", oncePerKeypress(() => goToNextStep()));
+  useHotkeys(
+    "2",
+    oncePerKeypress(() => goToNextStep()),
+  );
 
   useEffect(() => {
     const handlePaste = async (event: ClipboardEvent) => {
@@ -642,8 +679,11 @@ export default function App() {
           () => window.crypto.randomUUID(),
           { x: 120, y: 120 },
         );
-        const { step: activeStep, snapShot: snapshots, activeNodeIds: selectedIds } =
-          latestStateRef.current;
+        const {
+          step: activeStep,
+          snapShot: snapshots,
+          activeNodeIds: selectedIds,
+        } = latestStateRef.current;
         const nodes = snapshots[activeStep].nodes;
 
         const selectedRectNode =
@@ -746,6 +786,7 @@ export default function App() {
               viewOnly
               showControls={false}
               activeNodeIds={[]}
+              entranceNodeIds={[]}
             />
           ) : null}
         </div>
@@ -756,6 +797,7 @@ export default function App() {
             activeNodeIds={activeNodeIds}
             setActiveNodeIds={setActiveNodeIds}
             activeToolId={activeToolId}
+            entranceNodeIds={stepEntranceNodeIds}
             onClickBackground={handleClickBackground}
             onNodeDoubleClick={handleNodeDoubleClick}
           />

@@ -1,5 +1,6 @@
 import { type CSSProperties } from "react";
 import {
+  type EntranceAnimation,
   type CanvasNode,
   type RectNode,
   type TextNode,
@@ -24,6 +25,71 @@ export const getNodeTransition = (
   }
 
   return { duration: 0 };
+};
+
+export const getEntranceInitial = (animation: EntranceAnimation) => {
+  switch (animation) {
+    case "fade":
+      return { opacity: 0 };
+    case "pop":
+      return { opacity: 0, scale: 0.85 };
+    case "slide-up":
+      return { opacity: 0, y: 24 };
+    case "slide-down":
+      return { opacity: 0, y: -24 };
+    case "slide-left":
+      return { opacity: 0, x: 24 };
+    case "slide-right":
+      return { opacity: 0, x: -24 };
+    case "none":
+    default:
+      return undefined;
+  }
+};
+
+export const getEntranceInitialFromTarget = <T extends Record<string, unknown>>(
+  animation: EntranceAnimation,
+  target: T,
+) => {
+  const initial = getEntranceInitial(animation);
+  if (!initial) {
+    return false;
+  }
+
+  return {
+    ...target,
+    ...initial,
+    x:
+      typeof target.x === "number" && typeof initial.x === "number"
+        ? target.x + initial.x
+        : target.x,
+    y:
+      typeof target.y === "number" && typeof initial.y === "number"
+        ? target.y + initial.y
+        : target.y,
+    scale:
+      typeof target.scale === "number" && typeof initial.scale === "number"
+        ? target.scale * initial.scale
+        : target.scale,
+  };
+};
+
+export const getEntranceTransition = (animation: EntranceAnimation) => {
+  if (animation === "none") {
+    return undefined;
+  }
+
+  if (animation === "pop") {
+    return {
+      opacity: { duration: 0.18, ease: "easeOut" as const },
+      scale: { type: "spring" as const, stiffness: 380, damping: 24 },
+    };
+  }
+
+  return {
+    duration: 0.22,
+    ease: "easeOut" as const,
+  };
 };
 
 const getTextDecorationLine = (typography: Typography) => {

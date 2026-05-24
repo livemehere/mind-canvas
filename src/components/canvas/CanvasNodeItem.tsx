@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type CanvasNode,
   type RectNode,
@@ -16,6 +16,8 @@ import {
   getNodeTransition,
   getRectContentStyle,
   getTextStyle,
+  getEntranceInitialFromTarget,
+  getEntranceTransition,
 } from "../../features/styles/helpers";
 import {
   createTextSnapshot,
@@ -34,6 +36,7 @@ interface Props {
   node: CanvasNode;
   isSelected: boolean;
   canDrag: boolean;
+  shouldPlayEntranceAnimation?: boolean;
   autoCenterText?: boolean;
   textLayoutResetToken?: number;
   previewOffset?: { x: number; y: number };
@@ -71,6 +74,7 @@ export function CanvasNodeItem({
   node,
   isSelected,
   canDrag,
+  shouldPlayEntranceAnimation = false,
   previewOffset,
   isPreviewing = false,
   setNodeRef,
@@ -87,6 +91,17 @@ export function CanvasNodeItem({
   const rotateSnapshotRef = useRef<RotateSnapshot | null>(null);
   const textSnapshotRef = useRef<TextTransformSnapshot | null>(null);
   const canPanDragRef = useRef(false);
+  const [isEntranceAnimating, setIsEntranceAnimating] = useState(
+    shouldPlayEntranceAnimation,
+  );
+
+  useEffect(() => {
+    if (!shouldPlayEntranceAnimation) {
+      return;
+    }
+
+    setIsEntranceAnimating(true);
+  }, [shouldPlayEntranceAnimation]);
 
   const handleResizeStart = () => {
     if (node.type !== "rect") {
@@ -257,6 +272,27 @@ export function CanvasNodeItem({
     canPanDragRef.current = false;
   };
 
+  const animateTarget = {
+    x: node.position.x + (previewOffset?.x ?? 0),
+    y: node.position.y + (previewOffset?.y ?? 0),
+    scale: node.scale,
+    opacity: node.opacity,
+    rotate: node.rotate,
+    ...getNodeStyle(node),
+  };
+
+  const shouldApplyEntranceAnimation =
+    isEntranceAnimating &&
+    node.entranceAnimation !== "none";
+
+  const entranceInitial = shouldApplyEntranceAnimation
+    ? getEntranceInitialFromTarget(node.entranceAnimation, animateTarget)
+    : false;
+
+  const entranceTransition = shouldApplyEntranceAnimation
+    ? getEntranceTransition(node.entranceAnimation)
+    : undefined;
+
   return (
     <motion.div
       ref={(element) => {
@@ -273,16 +309,18 @@ export function CanvasNodeItem({
         overflow: "visible",
         ...(isSelected ? { outline: "4px solid #9810FA" } : {}),
       }}
-      initial={false}
-      animate={{
-        x: node.position.x + (previewOffset?.x ?? 0),
-        y: node.position.y + (previewOffset?.y ?? 0),
-        scale: node.scale,
-        opacity: node.opacity,
-        rotate: node.rotate,
-        ...getNodeStyle(node),
+      initial={entranceInitial}
+      animate={animateTarget}
+      transition={
+        entranceTransition ?? getNodeTransition(node, isSelected, isPreviewing)
+      }
+      onAnimationComplete={() => {
+        if (!isEntranceAnimating) {
+          return;
+        }
+
+        setIsEntranceAnimating(false);
       }}
-      transition={getNodeTransition(node, isSelected, isPreviewing)}
       onPointerDown={handlePointerDown}
       onDoubleClick={() => onDoubleClick?.(node)}
       onPanStart={(event) => {

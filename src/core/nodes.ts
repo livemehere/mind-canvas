@@ -4,16 +4,22 @@ export interface Position {
 }
 
 export const NODE_TRANSITIONS = ["spring", "none"] as const;
+export const ENTRANCE_ANIMATIONS = [
+  "none",
+  "fade",
+  "pop",
+  "slide-up",
+  "slide-down",
+  "slide-left",
+  "slide-right",
+] as const;
 
 export const TEXT_ALIGN_OPTIONS = ["left", "center", "right"] as const;
 export const FONT_STYLE_OPTIONS = ["normal", "italic"] as const;
 export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
-export const RECT_CONTENT_COLOR_OPTIONS = {
-  black: "#000000",
-  white: "#ffffff",
-} as const;
 
 export type NodeTransition = (typeof NODE_TRANSITIONS)[number];
+export type EntranceAnimation = (typeof ENTRANCE_ANIMATIONS)[number];
 export type TextAlign = (typeof TEXT_ALIGN_OPTIONS)[number];
 export type FontStyle = (typeof FONT_STYLE_OPTIONS)[number];
 export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
@@ -45,6 +51,7 @@ export interface BaseNode {
   rotate: number;
   zIndex: number;
   transition: NodeTransition;
+  entranceAnimation: EntranceAnimation;
   bgColor: string;
   radius: number;
   borderWidth: number;
@@ -90,6 +97,7 @@ export const DEFAULT_RECT_NODE: RectNode = {
   scale: 1,
   zIndex: 0,
   transition: "spring",
+  entranceAnimation: "pop",
   content: "",
   contentTypography: {
     color: "#000000",
@@ -116,6 +124,7 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   scale: 1,
   zIndex: 0,
   transition: "spring",
+  entranceAnimation: "pop",
   text: "Text",
   color: "#ffffff",
   paddingX: 0,

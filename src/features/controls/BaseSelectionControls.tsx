@@ -1,8 +1,10 @@
 import { useControls } from "leva";
 import { useRef } from "react";
 import {
+  ENTRANCE_ANIMATIONS,
   NODE_TRANSITIONS,
   type CanvasNode,
+  type EntranceAnimation,
   type NodeTransition,
 } from "../../core/nodes";
 import {
@@ -69,6 +71,10 @@ export function BaseSelectionControls({
   const transition = getSharedValue<NodeTransition>(
     nodes.map((node) => node.transition),
     "spring",
+  );
+  const entranceAnimation = getSharedValue<EntranceAnimation>(
+    nodes.map((node) => node.entranceAnimation),
+    "fade",
   );
 
   const applyNumericChange = (
@@ -457,6 +463,30 @@ export function BaseSelectionControls({
           );
         },
       },
+      entranceAnimation: {
+        options: [...ENTRANCE_ANIMATIONS],
+        value: entranceAnimation.value,
+        hint: entranceAnimation.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextEntranceAnimation: EntranceAnimation,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) => ({
+              ...node,
+              entranceAnimation: nextEntranceAnimation,
+            }),
+            { commitHistory: false },
+          );
+        },
+      },
     }),
     [
       nodes,
@@ -482,6 +512,8 @@ export function BaseSelectionControls({
       radius.mixed,
       transition.value,
       transition.mixed,
+      entranceAnimation.value,
+      entranceAnimation.mixed,
     ],
   );
 
@@ -499,6 +531,7 @@ export function BaseSelectionControls({
       bgColor: bgColor.value,
       radius: radius.mixed ? 0 : radius.value,
       transition: transition.value,
+      entranceAnimation: entranceAnimation.value,
     },
     isEditingRef,
   );
