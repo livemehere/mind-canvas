@@ -18,6 +18,12 @@ import { SelectionOverlay } from "../../features/selection/SelectionOverlay";
 import { type CanvasToolId } from "./CanvasToolbar";
 import { SelectedNodeControls } from "../../features/controls";
 import { type CanvasSize } from "../../features/controls/types";
+import {
+  buildDragSnapCache,
+  getSnapPreviewOffset,
+  type DragSnapCache,
+  type SnapGuide,
+} from "../../features/snap/helpers";
 import { NOOP } from "../../utils/noop";
 
 export interface CanvasSurfaceProps {
@@ -35,70 +41,6 @@ export interface CanvasSurfaceProps {
   onNodeDoubleClick?: (node: CanvasNode) => void;
   canvasSize?: CanvasSize;
 }
-
-interface SnapGuide {
-  x?: number;
-  y?: number;
-}
-
-interface SnapBounds {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-  centerX: number;
-  centerY: number;
-}
-
-interface DragSnapCache {
-  movingX: number[];
-  movingY: number[];
-  targetX: number[];
-  targetY: number[];
-}
-
-const DRAG_SNAP_THRESHOLD = 8;
-
-const getSnapBoundsFromElement = (
-  element: HTMLDivElement,
-  canvasRect: DOMRect,
-): SnapBounds => {
-  const rect = element.getBoundingClientRect();
-  const left = rect.left - canvasRect.left;
-  const top = rect.top - canvasRect.top;
-  const right = rect.right - canvasRect.left;
-  const bottom = rect.bottom - canvasRect.top;
-
-  return {
-    left,
-    right,
-    top,
-    bottom,
-    centerX: (left + right) / 2,
-    centerY: (top + bottom) / 2,
-  };
-};
-
-const getBestSnap = (points: number[], targets: number[]) => {
-  let bestTarget: number | null = null;
-  let bestDiff = Number.POSITIVE_INFINITY;
-
-  for (const point of points) {
-    for (const target of targets) {
-      const diff = target - point;
-      if (Math.abs(diff) < Math.abs(bestDiff)) {
-        bestDiff = diff;
-        bestTarget = target;
-      }
-    }
-  }
-
-  if (bestTarget === null || Math.abs(bestDiff) > DRAG_SNAP_THRESHOLD) {
-    return null;
-  }
-
-  return { diff: bestDiff, target: bestTarget };
-};
 
 export function CanvasSurface({
   nodes,
@@ -399,51 +341,13 @@ export function CanvasSurface({
 
     const canvasRect = containerRef.current?.getBoundingClientRect();
     if (canvasRect) {
-      const movingBoundsList = movingNodeIds
-        .map((nodeId) => {
-          const element = nodeRefs.current[nodeId];
-          return element ? getSnapBoundsFromElement(element, canvasRect) : null;
-        })
-        .filter((bounds): bounds is SnapBounds => bounds !== null);
-
-      const targetBounds = nodes
-        .filter((currentNode) => !movingNodeIds.includes(currentNode.id))
-        .map((currentNode) => {
-          const element = nodeRefs.current[currentNode.id];
-          return element ? getSnapBoundsFromElement(element, canvasRect) : null;
-        })
-        .filter((bounds): bounds is SnapBounds => bounds !== null);
-
-      if (movingBoundsList.length > 0) {
-        dragSnapCacheRef.current = {
-          movingX: movingBoundsList.flatMap((bounds) => [
-            bounds.left,
-            bounds.centerX,
-            bounds.right,
-          ]),
-          movingY: movingBoundsList.flatMap((bounds) => [
-            bounds.top,
-            bounds.centerY,
-            bounds.bottom,
-          ]),
-          targetX: [
-            ...targetBounds.flatMap((bounds) => [
-              bounds.left,
-              bounds.centerX,
-              bounds.right,
-            ]),
-            measuredCanvasSize.width / 2,
-          ],
-          targetY: [
-            ...targetBounds.flatMap((bounds) => [
-              bounds.top,
-              bounds.centerY,
-              bounds.bottom,
-            ]),
-            measuredCanvasSize.height / 2,
-          ],
-        };
-      }
+      dragSnapCacheRef.current = buildDragSnapCache({
+        movingNodeIds,
+        nodes,
+        nodeRefs: nodeRefs.current,
+        canvasRect,
+        canvasSize: measuredCanvasSize,
+      });
     }
 
     setDragPreview({
@@ -471,24 +375,12 @@ export function CanvasSurface({
     let guides: SnapGuide | undefined;
 
     if (modifiers.shiftKey && dragSnapCacheRef.current) {
-      const { movingX, movingY, targetX, targetY } = dragSnapCacheRef.current;
-      const xSnap = getBestSnap(
-        movingX.map((point) => point + offset.x),
-        targetX,
+      const snappedPreview = getSnapPreviewOffset(
+        offset,
+        dragSnapCacheRef.current,
       );
-      const ySnap = getBestSnap(
-        movingY.map((point) => point + offset.y),
-        targetY,
-      );
-
-      nextOffset = {
-        x: xSnap ? offset.x + xSnap.diff : offset.x,
-        y: ySnap ? offset.y + ySnap.diff : offset.y,
-      };
-      guides = {
-        x: xSnap?.target,
-        y: ySnap?.target,
-      };
+      nextOffset = snappedPreview.offset;
+      guides = snappedPreview.guides;
     }
 
     setDragPreview({

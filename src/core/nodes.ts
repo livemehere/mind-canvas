@@ -6,6 +6,7 @@ export interface Position {
 export const NODE_TRANSITIONS = ["spring", "none"] as const;
 
 export const TEXT_ALIGN_OPTIONS = ["left", "center", "right"] as const;
+export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
 export const RECT_CONTENT_COLOR_OPTIONS = {
   black: "#000000",
   white: "#ffffff",
@@ -13,6 +14,7 @@ export const RECT_CONTENT_COLOR_OPTIONS = {
 
 export type NodeTransition = (typeof NODE_TRANSITIONS)[number];
 export type TextAlign = (typeof TEXT_ALIGN_OPTIONS)[number];
+export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
 
 export interface Typography {
   fontSize: number;
@@ -56,6 +58,7 @@ export interface RectNode extends BaseNode {
     height: number;
   };
   backgroundImage?: string;
+  backgroundSize: RectBackgroundSize;
   content: string;
   contentTypography: RectContentTypography;
 }
@@ -75,6 +78,7 @@ export const DEFAULT_RECT_NODE: RectNode = {
   position: { x: 0, y: 0 },
   size: { width: 100, height: 100 },
   backgroundImage: undefined,
+  backgroundSize: "cover",
   bgColor: "#ffffff",
   radius: 0,
   borderWidth: 0,

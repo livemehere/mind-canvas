@@ -1,7 +1,9 @@
 import { useControls } from "leva";
 import { useEffect, useRef } from "react";
 import {
+  RECT_BACKGROUND_SIZE_OPTIONS,
   RECT_CONTENT_COLOR_OPTIONS,
+  type RectBackgroundSize,
   type RectNode,
 } from "../../core/nodes";
 import {
@@ -41,6 +43,10 @@ export function RectSelectionControls({
   const contentColor = getSharedValue(
     nodes.map((node) => node.contentTypography.color),
     RECT_CONTENT_COLOR_OPTIONS.black,
+  );
+  const backgroundSize = getSharedValue<RectBackgroundSize>(
+    nodes.map((node) => node.backgroundSize),
+    "cover",
   );
 
   const applyNumericChange = (
@@ -194,6 +200,28 @@ export function RectSelectionControls({
           );
         },
       },
+      backgroundSize: {
+        options: [...RECT_BACKGROUND_SIZE_OPTIONS],
+        value: backgroundSize.value,
+        hint: backgroundSize.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: endEdit,
+        onChange: (
+          nextBackgroundSize: RectBackgroundSize,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes((node) =>
+            node.type === "rect"
+              ? {
+                  ...node,
+                  backgroundSize: nextBackgroundSize,
+                }
+              : node,
+          );
+        },
+      },
     }),
     [
       nodes,
@@ -205,6 +233,8 @@ export function RectSelectionControls({
       content.mixed,
       contentColor.value,
       contentColor.mixed,
+      backgroundSize.value,
+      backgroundSize.mixed,
     ],
   );
 
@@ -215,6 +245,7 @@ export function RectSelectionControls({
       height: height.mixed ? 0 : height.value,
       content: content.mixed ? "" : content.value,
       contentColor: contentColor.value,
+      backgroundSize: backgroundSize.value,
     },
     isEditingRef,
   );

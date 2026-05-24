@@ -1,6 +1,10 @@
 import { motion } from "motion/react";
 import { useRef } from "react";
-import { type CanvasNode, type RectNode, type TextNode } from "../../core/nodes";
+import {
+  type CanvasNode,
+  type RectNode,
+  type TextNode,
+} from "../../core/nodes";
 import {
   CanvasNodeTransformHandles,
   type RotateHandleModifiers,
@@ -12,7 +16,7 @@ import {
   getNodeTransition,
   getRectContentStyle,
   getTextStyle,
-} from "./CanvasNodeItem.styles";
+} from "../../features/styles/helpers";
 import {
   createTextSnapshot,
   createRectSnapshot,
@@ -24,7 +28,7 @@ import {
   type RotateSnapshot,
   roundNumber,
   type TextTransformSnapshot,
-} from "./CanvasNodeItem.transforms";
+} from "../../features/transform/helpers";
 
 interface Props {
   node: CanvasNode;
@@ -101,8 +105,10 @@ export function CanvasNodeItem({
     if (node.type === "text") {
       const snapshot = textSnapshotRef.current ?? createTextSnapshot(node);
 
-      onTextNodeChange(node.id, (currentNode) =>
-        resizeTextNodeFont(currentNode, snapshot, direction, offset),
+      onTextNodeChange(
+        node.id,
+        (currentNode) =>
+          resizeTextNodeFont(currentNode, snapshot, direction, offset),
         { commitHistory: false },
       );
       return;
@@ -114,8 +120,10 @@ export function CanvasNodeItem({
 
     const snapshot = resizeSnapshotRef.current ?? createRectSnapshot(node);
 
-    onRectNodeChange(node.id, (currentNode) =>
-      resizeRectNode(currentNode, snapshot, direction, offset, modifiers),
+    onRectNodeChange(
+      node.id,
+      (currentNode) =>
+        resizeRectNode(currentNode, snapshot, direction, offset, modifiers),
       { commitHistory: false },
     );
   };
@@ -170,23 +178,33 @@ export function CanvasNodeItem({
       rotate: node.rotate,
     };
 
-    const rawRotate = roundNumber(snapshot.rotate + offset.x * ROTATE_SENSITIVITY);
+    const rawRotate = roundNumber(
+      snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
+    );
     const nextRotate = modifiers.shiftKey
       ? roundNumber(Math.round(rawRotate / 15) * 15)
       : rawRotate;
 
     if (node.type === "rect") {
-      onRectNodeChange(node.id, (currentNode) => ({
-        ...currentNode,
-        rotate: nextRotate,
-      }), { commitHistory: false });
+      onRectNodeChange(
+        node.id,
+        (currentNode) => ({
+          ...currentNode,
+          rotate: nextRotate,
+        }),
+        { commitHistory: false },
+      );
       return;
     }
 
-    onTextNodeChange(node.id, (currentNode) => ({
-      ...currentNode,
-      rotate: nextRotate,
-    }), { commitHistory: false });
+    onTextNodeChange(
+      node.id,
+      (currentNode) => ({
+        ...currentNode,
+        rotate: nextRotate,
+      }),
+      { commitHistory: false },
+    );
   };
 
   const handleRotateEnd = (
@@ -200,7 +218,9 @@ export function CanvasNodeItem({
     const snapshot = rotateSnapshotRef.current ?? {
       rotate: node.rotate,
     };
-    const rawRotate = roundNumber(snapshot.rotate + offset.x * ROTATE_SENSITIVITY);
+    const rawRotate = roundNumber(
+      snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
+    );
     const nextRotate = modifiers.shiftKey
       ? roundNumber(Math.round(rawRotate / 15) * 15)
       : rawRotate;
@@ -282,7 +302,9 @@ export function CanvasNodeItem({
         canPanDragRef.current = false;
       }}
     >
-      {(node.type === "rect" || node.type === "text") && isSelected && canDrag ? (
+      {(node.type === "rect" || node.type === "text") &&
+      isSelected &&
+      canDrag ? (
         <CanvasNodeTransformHandles
           onResizeStart={handleResizeStart}
           onResize={handleResize}

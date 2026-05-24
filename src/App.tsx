@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Leva } from "leva";
+import { Trash2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useHotkeys } from "react-hotkeys-hook";
 import { CanvasSurface } from "./components/canvas/CanvasSurface";
@@ -19,6 +20,7 @@ import { requestControlFocus } from "./features/controls/focus";
 import {
   createImageRectNode,
   getImageFileFromClipboardEvent,
+  readImageDataUrl,
   readNodesFromClipboard,
   readNodesFromClipboardEvent,
   writeNodesToClipboard,
@@ -73,6 +75,7 @@ export default function App() {
   const latestStateRef = useRef({
     step: 0,
     snapShot: [{ nodes: [] }] as Snapshot[],
+    activeNodeIds: [] as string[],
   });
 
   const snapShotLength = snapShot.length;
@@ -82,8 +85,8 @@ export default function App() {
   const currentHistory = histories[step] ?? createStepHistory(currentNodes);
 
   useEffect(() => {
-    latestStateRef.current = { step, snapShot };
-  }, [step, snapShot]);
+    latestStateRef.current = { step, snapShot, activeNodeIds };
+  }, [step, snapShot, activeNodeIds]);
 
   const commitNodesToStep = (
     targetStep: number,
@@ -142,6 +145,22 @@ export default function App() {
     setSnapShot((prev) => [...prev, createSnapshot(nextNodes)]);
     setHistories((prev) => [...prev, createStepHistory(nextNodes)]);
     toast.success("Snapshot added");
+  };
+
+  const removeCurrentStep = () => {
+    if (snapShot.length === 1) {
+      toast.warning("Cannot remove the last snapshot");
+      return;
+    }
+
+    const targetStep = step;
+    const nextStep = Math.max(0, Math.min(targetStep, snapShot.length - 2));
+
+    setSnapShot((prev) => prev.filter((_, index) => index !== targetStep));
+    setHistories((prev) => prev.filter((_, index) => index !== targetStep));
+    setStep(nextStep);
+    setActiveNodeIds([]);
+    toast.success("Snapshot removed");
   };
 
   const undo = () => {
@@ -375,14 +394,40 @@ export default function App() {
 
       if (imageFile) {
         event.preventDefault();
+        const backgroundImage = await readImageDataUrl(imageFile);
         const rectNode = await createImageRectNode(
           imageFile,
           () => window.crypto.randomUUID(),
           { x: 120, y: 120 },
         );
-        const { step: activeStep, snapShot: snapshots } =
+        const { step: activeStep, snapShot: snapshots, activeNodeIds: selectedIds } =
           latestStateRef.current;
         const nodes = snapshots[activeStep].nodes;
+
+        const selectedRectNode =
+          selectedIds.length === 1
+            ? nodes.find(
+                (node) => node.id === selectedIds[0] && node.type === "rect",
+              )
+            : undefined;
+
+        if (selectedRectNode && selectedRectNode.type === "rect") {
+          commitNodesToStep(
+            activeStep,
+            nodes.map((node) =>
+              node.id === selectedRectNode.id
+                ? {
+                    ...node,
+                    backgroundImage,
+                  }
+                : node,
+            ),
+          );
+          setActiveNodeIds([selectedRectNode.id]);
+          toast.success("Image applied to selected rect");
+          return;
+        }
+
         commitNodesToStep(activeStep, [...nodes, rectNode]);
         setActiveNodeIds([rectNode.id]);
         toast.success("Image pasted as rect");
@@ -424,7 +469,18 @@ export default function App() {
       <Toaster position="top-center" richColors />
       <div className="h-full relative">
         <div className="absolute top-5 right-5 z-10 text-2xl font-bold">
-          Step : {step} / {snapShotLength - 1}
+          <div className="flex items-center gap-3">
+            <span>Step : {step} / {snapShotLength - 1}</span>
+            <button
+              type="button"
+              onClick={removeCurrentStep}
+              disabled={snapShotLength === 1}
+              className="flex h-9 w-9 items-center justify-center rounded bg-neutral-900/80 text-white transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Remove current snapshot"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
         </div>
         <div className="absolute inset-0">
           {step > 0 && showPreviousOverlay ? (

@@ -2,7 +2,7 @@ import { type Position, type RectNode, type TextNode } from "../../core/nodes";
 import {
   type ResizeHandleDirection,
   type ResizeHandleModifiers,
-} from "./CanvasNodeTransformHandles";
+} from "../../components/canvas/CanvasNodeTransformHandles";
 
 export interface RectTransformSnapshot {
   position: Position;

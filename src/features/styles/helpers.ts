@@ -1,5 +1,9 @@
 import { type CSSProperties } from "react";
-import { type CanvasNode, type RectNode, type TextNode } from "../../core/nodes";
+import {
+  type CanvasNode,
+  type RectNode,
+  type TextNode,
+} from "../../core/nodes";
 
 export const getNodeTransition = (node: CanvasNode, isSelected: boolean) => {
   if (isSelected) {
@@ -61,7 +65,7 @@ export const getNodeStyle = (node: CanvasNode) => {
           : undefined,
         backgroundPosition: node.backgroundImage ? "center" : undefined,
         backgroundRepeat: node.backgroundImage ? "no-repeat" : undefined,
-        backgroundSize: node.backgroundImage ? "cover" : undefined,
+        backgroundSize: node.backgroundImage ? node.backgroundSize : undefined,
         borderRadius: node.radius,
         border: `${node.borderWidth}px solid ${node.borderColor}`,
       };

@@ -1,4 +1,4 @@
-import { type CanvasNode, DEFAULT_RECT_NODE } from "../core/nodes";
+import { type CanvasNode, DEFAULT_RECT_NODE, type RectNode } from "../core/nodes";
 
 const APP_CLIPBOARD_MIME = "application/x-mind-canvas-nodes";
 
@@ -116,17 +116,20 @@ export const getImageFileFromClipboardEvent = (
   return item?.getAsFile() ?? null;
 };
 
-export const createImageRectNode = async (
-  file: File,
-  createId: () => string,
-  position: { x: number; y: number },
-) => {
-  const backgroundImage = await new Promise<string>((resolve, reject) => {
+export const readImageDataUrl = async (file: File): Promise<string> =>
+  new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+
+export const createImageRectNode = async (
+  file: File,
+  createId: () => string,
+  position: { x: number; y: number },
+): Promise<RectNode> => {
+  const backgroundImage = await readImageDataUrl(file);
 
   const imageSize = await new Promise<{ width: number; height: number }>(
     (resolve, reject) => {
@@ -157,6 +160,7 @@ export const createImageRectNode = async (
     },
     bgColor: "transparent",
     backgroundImage,
+    backgroundSize: "cover",
     content: "",
   };
 };
