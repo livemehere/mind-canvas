@@ -47,14 +47,9 @@ export function Canvas({ nodes, setNodes }: Props) {
             height: node.size.height,
             backgroundColor: node.bgColor,
           }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ type: "spring", stiffness: 100, damping: 30 }}
           className={"text-black text-xs"}
-          onDragStart={(e) => {
-            const rect = (e.target as HTMLDivElement).getBoundingClientRect();
-            console.log(rect.x, rect.y);
-          }}
-          onDragEnd={(e) => {
-            const rect = (e.target as HTMLDivElement).getBoundingClientRect();
+          onDragEnd={(_, info) => {
             // update node position at current snapShot
             setNodes(
               nodes.map((n) => {
@@ -62,15 +57,16 @@ export function Canvas({ nodes, setNodes }: Props) {
                 return {
                   ...n,
                   position: {
-                    x: rect.x,
-                    y: rect.y,
+                    x: n.position.x + info.offset.x,
+                    y: n.position.y + info.offset.y,
                   },
+                  bgColor: "#ff0000",
                 };
               }),
             );
           }}
         >
-          {node.id}
+          {node.content}
         </motion.div>
       ))}
     </div>
