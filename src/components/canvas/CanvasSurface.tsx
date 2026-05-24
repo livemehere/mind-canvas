@@ -81,6 +81,15 @@ export function CanvasSurface({
     offset: Position;
     guides?: SnapGuide;
   } | null>(null);
+  const [entranceRun, setEntranceRun] = useState(0);
+
+  useEffect(() => {
+    if (entranceNodeIds.length === 0) {
+      return;
+    }
+
+    setEntranceRun((prev) => prev + 1);
+  }, [entranceNodeIds]);
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => activeNodeIds.includes(node.id)),
@@ -475,7 +484,11 @@ export function CanvasSurface({
       ) : null}
       {nodes.map((node) => (
         <CanvasNodeItem
-          key={node.id}
+          key={
+            entranceNodeIds.includes(node.id)
+              ? `${node.id}:entrance:${entranceRun}`
+              : node.id
+          }
           node={node}
           isSelected={activeNodeIds.includes(node.id)}
           canDrag={!viewOnly && activeToolId === "select"}
