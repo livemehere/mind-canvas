@@ -1,33 +1,39 @@
 import { Canvas } from "./components/Canvas";
 import { useEffect, useState } from "react";
-import { type CNode, RECT, type SnapShot } from "./core/CNode";
+import { type CNode, type Position, RECT, type SnapShot } from "./core/CNode";
 import { useHotkeys } from "react-hotkeys-hook";
 import { flushSync } from "react-dom";
+import { Toolbar, type ToolId } from "./components/Toolbar";
+import { Leva } from "leva";
 
 export default function App() {
   const [step, setStep] = useState(0);
   const [snapShot, setSnapShot] = useState<SnapShot[]>([
     {
-      nodes: [
-        {
-          ...RECT,
-          position: { x: 500, y: 500 },
-          content: "HELLO",
-        },
-      ],
+      nodes: [],
     },
-    {
-      nodes: [
-        {
-          ...RECT,
-          position: { x: 800, y: 500 },
-          scale: 2,
-          content: "WORLD",
-        },
-      ],
-    },
+    // {
+    //   nodes: [
+    //     {
+    //       ...RECT,
+    //       position: { x: 500, y: 500 },
+    //       content: "HELLO",
+    //     },
+    //   ],
+    // },
+    // {
+    //   nodes: [
+    //     {
+    //       ...RECT,
+    //       position: { x: 800, y: 500 },
+    //       scale: 2,
+    //       content: "WORLD",
+    //     },
+    //   ],
+    // },
   ]);
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [activeToolId, setActiveToolId] = useState<ToolId>("select");
 
   const snapShotLength = snapShot.length;
 
@@ -53,18 +59,50 @@ export default function App() {
     setSnapShot((prev) => [...prev, newSnapShot]);
   };
 
-  useHotkeys("left", () => {
+  const createRect = (x: number, y: number) => {
+    const id = window.crypto.randomUUID();
+    setCurrentSnapShotNodes([
+      ...currentNodes,
+      {
+        ...RECT,
+        id,
+        position: { x, y },
+      },
+    ]);
+    return id;
+  };
+
+  const handleClickBackground = (position: Position) => {
+    switch (activeToolId) {
+      case "select": {
+        setActiveNodeId(null);
+        break;
+      }
+      case "rect": {
+        const id = createRect(position.x, position.y);
+        setActiveNodeId(id);
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
+  useHotkeys("q", () => setActiveToolId("select"));
+  useHotkeys("w", () => setActiveToolId("rect"));
+
+  useHotkeys("1", () => {
     setStep((prev) => Math.max(0, prev - 1));
     setActiveNodeId(null);
   });
 
-  useHotkeys("right", () => {
+  useHotkeys("2", () => {
     if (step === snapShotLength - 1) return;
     setStep((prev) => prev + 1);
     setActiveNodeId(null);
   });
 
-  useHotkeys("n", () => {
+  useHotkeys("3", () => {
     flushSync(() => {
       addSnapShot(true);
       setActiveNodeId(null);
@@ -82,7 +120,10 @@ export default function App() {
         setNodes={setCurrentSnapShotNodes}
         activeNodeId={activeNodeId}
         setActiveNodeId={setActiveNodeId}
+        onClickBackground={handleClickBackground}
       />
+      <Toolbar activeToolId={activeToolId} setActiveToolId={setActiveToolId} />
+      <Leva titleBar={{ position: { x: 0, y: 60 } }} />
     </div>
   );
 }

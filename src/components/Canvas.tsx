@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { type CNode, RECT } from "../core/CNode";
+import { type CNode, type Position, RECT } from "../core/CNode";
 import { useMemo, useState } from "react";
 import { useControls } from "leva";
 
@@ -8,6 +8,7 @@ export interface Props {
   setNodes: (newNodes: CNode[]) => void;
   activeNodeId: string | null;
   setActiveNodeId: (id: string | null) => void;
+  onClickBackground: (position: Position) => void;
 }
 
 export function Canvas({
@@ -15,6 +16,7 @@ export function Canvas({
   setNodes,
   activeNodeId,
   setActiveNodeId,
+  onClickBackground,
 }: Props) {
   const activeNode = useMemo(
     () => nodes.find((n) => n.id === activeNodeId) ?? null,
@@ -34,6 +36,14 @@ export function Canvas({
           }
         },
       },
+      content: {
+        value: activeNode?.content ?? "",
+        onChange: (content) => {
+          if (activeNode) {
+            updateNode({ ...activeNode, content });
+          }
+        },
+      },
       transition: {
         value: true,
         onChange: (v: boolean) => setTransitionEnabled(v),
@@ -46,26 +56,16 @@ export function Canvas({
     setNodes(nodes.map((n) => (n.id === node.id ? node : n)));
   };
 
-  const createRect = (x: number, y: number) => {
-    setNodes([
-      ...nodes,
-      {
-        ...RECT,
-        id: window.crypto.randomUUID(),
-        position: { x, y },
-      },
-    ]);
-  };
-
-  const handleOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    createRect(x, y);
-  };
-
   return (
-    <div className={"h-full relative"}>
+    <div
+      className={"h-full relative"}
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        onClickBackground({ x, y });
+      }}
+    >
       {nodes.map((node) => (
         <motion.div
           drag
@@ -95,8 +95,10 @@ export function Canvas({
               : { duration: 0 }
           }
           className={"text-black text-xs"}
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             setActiveNodeId(node.id);
+            console.log(1);
           }}
           onDragEnd={(_, info) => {
             // update node position at current snapShot

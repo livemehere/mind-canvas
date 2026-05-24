@@ -1,6 +1,11 @@
+export interface Position {
+  x: number;
+  y: number;
+}
+
 export interface CNode {
   id: string;
-  position: { x: number; y: number };
+  position: Position;
   size: {
     width: number;
     height: number;
