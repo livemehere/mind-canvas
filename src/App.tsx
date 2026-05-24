@@ -332,6 +332,8 @@ export default function App() {
       ...targetNodes,
       ...cloneNodes(selectedNodes),
     ]);
+    setStep(targetStep);
+    setActiveNodeIds(selectedNodes.map((node) => node.id));
     toast.success("Copied to next snapshot");
   };
 

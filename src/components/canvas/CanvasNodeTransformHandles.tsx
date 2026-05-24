@@ -159,19 +159,34 @@ function ResizeHandle({
 }) {
   const config = HANDLE_STYLES[direction];
   const modifiersRef = useRef<ResizeHandleModifiers>({ altKey: false });
+  const dragActiveRef = useRef(false);
 
   return (
     <motion.button
       type="button"
       onPointerDown={stopPointerPropagation}
       onPanStart={(event) => {
+        dragActiveRef.current = true;
         modifiersRef.current = getResizeHandleModifiers(event);
         onResizeStart(direction, modifiersRef.current);
       }}
-      onPan={(_, info: PanInfo) => onResize(direction, info.offset, modifiersRef.current)}
-      onPanEnd={(_, info: PanInfo) =>
-        onResizeEnd(direction, info.offset, modifiersRef.current)
-      }
+      onPan={(event, info: PanInfo) => {
+        if (!dragActiveRef.current) {
+          return;
+        }
+
+        modifiersRef.current = getResizeHandleModifiers(event);
+        onResize(direction, info.offset, modifiersRef.current);
+      }}
+      onPanEnd={(event, info: PanInfo) => {
+        if (!dragActiveRef.current) {
+          return;
+        }
+
+        modifiersRef.current = getResizeHandleModifiers(event);
+        dragActiveRef.current = false;
+        onResizeEnd(direction, info.offset, modifiersRef.current);
+      }}
       style={{
         position: "absolute",
         width: HANDLE_SIZE,
@@ -201,6 +216,7 @@ export function CanvasNodeTransformHandles({
   resizeDirections = Object.keys(HANDLE_STYLES) as ResizeHandleDirection[],
 }: Props) {
   const rotateModifiersRef = useRef<RotateHandleModifiers>({ shiftKey: false });
+  const rotateActiveRef = useRef(false);
 
   return (
     <>
@@ -220,13 +236,27 @@ export function CanvasNodeTransformHandles({
         type="button"
         onPointerDown={stopPointerPropagation}
         onPanStart={(event) => {
+          rotateActiveRef.current = true;
           rotateModifiersRef.current = getRotateHandleModifiers(event);
           onRotateStart(rotateModifiersRef.current);
         }}
-        onPan={(_, info: PanInfo) => onRotate(info.offset, rotateModifiersRef.current)}
-        onPanEnd={(_, info: PanInfo) =>
-          onRotateEnd(info.offset, rotateModifiersRef.current)
-        }
+        onPan={(event, info: PanInfo) => {
+          if (!rotateActiveRef.current) {
+            return;
+          }
+
+          rotateModifiersRef.current = getRotateHandleModifiers(event);
+          onRotate(info.offset, rotateModifiersRef.current);
+        }}
+        onPanEnd={(event, info: PanInfo) => {
+          if (!rotateActiveRef.current) {
+            return;
+          }
+
+          rotateModifiersRef.current = getRotateHandleModifiers(event);
+          rotateActiveRef.current = false;
+          onRotateEnd(info.offset, rotateModifiersRef.current);
+        }}
         style={{
           position: "absolute",
           left: "50%",
