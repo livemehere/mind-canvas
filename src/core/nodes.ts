@@ -66,7 +66,7 @@ export const DEFAULT_RECT_NODE: RectNode = {
   rotate: 0,
   scale: 1,
   zIndex: 0,
-  transition: "none",
+  transition: "spring",
 };
 
 export const DEFAULT_TEXT_NODE: TextNode = {
