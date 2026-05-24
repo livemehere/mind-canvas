@@ -1,5 +1,7 @@
 import { motion } from "motion/react";
 import { type CNode, RECT } from "../core/CNode";
+import { useState } from "react";
+import { useControls } from "leva";
 
 export interface Props {
   nodes: CNode[];
@@ -7,6 +9,28 @@ export interface Props {
 }
 
 export function Canvas({ nodes, setNodes }: Props) {
+  const [activeNode, setActiveNode] = useState<CNode | null>(null);
+  useControls(
+    "Active Node",
+    {
+      color: {
+        value: activeNode?.bgColor ?? "#ffffff",
+        onChange: (color) => {
+          if (activeNode) {
+            console.log("change", color);
+            updateNode({ ...activeNode, bgColor: color });
+          }
+        },
+      },
+    },
+    [activeNode],
+  );
+  console.log(activeNode);
+
+  const updateNode = (node: CNode) => {
+    setNodes(nodes.map((n) => (n.id === node.id ? node : n)));
+  };
+
   const createRect = (x: number, y: number) => {
     setNodes([
       ...nodes,
@@ -49,6 +73,9 @@ export function Canvas({ nodes, setNodes }: Props) {
           }}
           transition={{ type: "spring", stiffness: 100, damping: 30 }}
           className={"text-black text-xs"}
+          onClick={() => {
+            setActiveNode(node);
+          }}
           onDragEnd={(_, info) => {
             // update node position at current snapShot
             setNodes(

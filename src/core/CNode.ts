@@ -7,13 +7,14 @@ export interface CNode {
   };
   scale: number;
   bgColor: string;
+  content?: string;
 }
 
 export const RECT: CNode = {
   id: "0",
   position: { x: 0, y: 0 },
   size: { width: 100, height: 100 },
-  bgColor: "white",
+  bgColor: "#ffffff",
   scale: 1,
 };
 

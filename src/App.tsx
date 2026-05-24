@@ -12,6 +12,7 @@ export default function App() {
         {
           ...RECT,
           position: { x: 500, y: 500 },
+          content: "HELLO",
         },
       ],
     },
@@ -19,8 +20,9 @@ export default function App() {
       nodes: [
         {
           ...RECT,
-          position: { x: 100, y: 100 },
+          position: { x: 800, y: 500 },
           scale: 2,
+          content: "WORLD",
         },
       ],
     },
@@ -69,7 +71,7 @@ export default function App() {
   return (
     <div className="h-full relative">
       <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
-        Step : {step}
+        Step : {step} / {snapShotLength - 1}
       </div>
       <Canvas nodes={currentNodes} setNodes={setCurrentSnapShotNodes} />
     </div>
