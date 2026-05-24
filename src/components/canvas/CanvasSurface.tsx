@@ -88,6 +88,7 @@ export function CanvasSurface({
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEntranceRun((prev) => prev + 1);
   }, [entranceNodeIds]);
 
@@ -139,12 +140,13 @@ export function CanvasSurface({
     updater: (node: CanvasNode) => CanvasNode,
     options?: UpdateSelectedNodesOptions,
   ) => {
-    commitNodes((currentNodes) =>
-      currentNodes.map((currentNode) =>
-        activeNodeIds.includes(currentNode.id)
-          ? updater(currentNode)
-          : currentNode,
-      ),
+    commitNodes(
+      (currentNodes) =>
+        currentNodes.map((currentNode) =>
+          activeNodeIds.includes(currentNode.id)
+            ? updater(currentNode)
+            : currentNode,
+        ),
       options,
     );
   };
@@ -385,11 +387,12 @@ export function CanvasSurface({
           return duplicatedNode;
         });
 
-      movingNodeIds = duplicatedNodes.map((duplicatedNode) => duplicatedNode.id);
-      commitNodes(
-        (currentNodes) => [...currentNodes, ...duplicatedNodes],
-        { commitHistory: false },
+      movingNodeIds = duplicatedNodes.map(
+        (duplicatedNode) => duplicatedNode.id,
       );
+      commitNodes((currentNodes) => [...currentNodes, ...duplicatedNodes], {
+        commitHistory: false,
+      });
       setActiveNodeIds(movingNodeIds);
     }
 

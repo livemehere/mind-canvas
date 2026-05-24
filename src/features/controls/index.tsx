@@ -33,6 +33,9 @@ export function SelectedNodeControls({
   const textNodes = nodes.filter(
     (node): node is TextNode => node.type === "text",
   );
+  const selectionKey = nodes.map((node) => node.id).join(":");
+  const rectSelectionKey = rectNodes.map((node) => node.id).join(":");
+  const textSelectionKey = textNodes.map((node) => node.id).join(":");
 
   if (nodes.length === 0) {
     return null;
@@ -46,6 +49,7 @@ export function SelectedNodeControls({
         canvasSize={canvasSize}
       />
       <BaseSelectionControls
+        key={`base:${selectionKey}`}
         nodes={nodes}
         updateSelectedNodes={updateSelectedNodes}
         linkedNodeIds={linkedNodeIds}
@@ -53,12 +57,14 @@ export function SelectedNodeControls({
       />
       {rectNodes.length > 0 ? (
         <RectSelectionControls
+          key={`rect:${rectSelectionKey}`}
           nodes={rectNodes}
           updateSelectedNodes={updateSelectedNodes}
         />
       ) : null}
       {textNodes.length > 0 ? (
         <TextSelectionControls
+          key={`text:${textSelectionKey}`}
           nodes={textNodes}
           updateSelectedNodes={updateSelectedNodes}
         />
