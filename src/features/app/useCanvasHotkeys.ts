@@ -14,6 +14,7 @@ interface UseCanvasHotkeysOptions {
   onToggleOverlay: () => void;
   onEscape: () => void;
   onBackspace: () => void;
+  onRemoveSnapshot: () => void;
   onStepPrev: () => void;
   onStepNext: () => void;
 }
@@ -31,6 +32,7 @@ export const useCanvasHotkeys = ({
   onToggleOverlay,
   onEscape,
   onBackspace,
+  onRemoveSnapshot,
   onStepPrev,
   onStepNext,
 }: UseCanvasHotkeysOptions) => {
@@ -49,10 +51,7 @@ export const useCanvasHotkeys = ({
     "meta+c,ctrl+c",
     oncePerKeypress(onCopy, { preventDefault: true }),
   );
-  useHotkeys(
-    "meta+x,ctrl+x",
-    oncePerKeypress(onCut, { preventDefault: true }),
-  );
+  useHotkeys("meta+x,ctrl+x", oncePerKeypress(onCut, { preventDefault: true }));
   useHotkeys(
     "meta+d,ctrl+d",
     oncePerKeypress(onDuplicate, { preventDefault: true }),
@@ -61,6 +60,10 @@ export const useCanvasHotkeys = ({
   useHotkeys("shift+o", oncePerKeypress(onToggleOverlay));
   useHotkeys("Escape", oncePerKeypress(onEscape));
   useHotkeys("Backspace", oncePerKeypress(onBackspace));
-  useHotkeys("1", oncePerKeypress(onStepPrev));
-  useHotkeys("2", oncePerKeypress(onStepNext));
+  useHotkeys(
+    "meta+backspace,ctrl+backspace",
+    oncePerKeypress(onRemoveSnapshot, { preventDefault: true }),
+  );
+  useHotkeys("1,left", oncePerKeypress(onStepPrev));
+  useHotkeys("2,right", oncePerKeypress(onStepNext));
 };

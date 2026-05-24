@@ -260,6 +260,7 @@ export default function App() {
       removeNodes(activeNodeIds);
       setActiveNodeIds([]);
     },
+    onRemoveSnapshot: removeCurrentStep,
     onStepPrev: () => {
       if (step === 0) {
         toast.warning("Already at the first step");
