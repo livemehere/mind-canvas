@@ -12,23 +12,26 @@ import {
 import { SelectionOverlay } from "../../features/selection/SelectionOverlay";
 import { type CanvasToolId } from "./CanvasToolbar";
 import { SelectedNodeControls } from "../../features/controls";
+import { NOOP } from "../../utils/noop";
 
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
-  setNodes: (newNodes: CanvasNode[]) => void;
-  activeNodeIds: string[];
-  setActiveNodeIds: (ids: string[]) => void;
-  activeToolId: CanvasToolId;
-  onClickBackground: (position: Position) => void;
+  setNodes?: (newNodes: CanvasNode[]) => void;
+  activeNodeIds?: string[];
+  setActiveNodeIds?: (ids: string[]) => void;
+  activeToolId?: CanvasToolId;
+  onClickBackground?: (position: Position) => void;
+  viewOnly?: boolean;
 }
 
 export function CanvasSurface({
   nodes,
-  setNodes,
-  activeNodeIds,
-  setActiveNodeIds,
-  activeToolId,
-  onClickBackground,
+  setNodes = NOOP,
+  activeNodeIds = [],
+  setActiveNodeIds = NOOP,
+  activeToolId = "select",
+  onClickBackground = NOOP,
+  viewOnly = false,
 }: CanvasSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<Position | null>(null);
@@ -101,6 +104,10 @@ export function CanvasSurface({
   const handleBackgroundPointerDown = (
     event: React.PointerEvent<HTMLDivElement>,
   ) => {
+    if (viewOnly) {
+      return;
+    }
+
     if (event.target !== event.currentTarget) {
       return;
     }
@@ -118,6 +125,10 @@ export function CanvasSurface({
   const handleBackgroundPointerMove = (
     event: React.PointerEvent<HTMLDivElement>,
   ) => {
+    if (viewOnly) {
+      return;
+    }
+
     if (!pointerStartRef.current || activeToolId !== "select") {
       return;
     }
@@ -129,6 +140,10 @@ export function CanvasSurface({
   const handleBackgroundPointerUp = (
     event: React.PointerEvent<HTMLDivElement>,
   ) => {
+    if (viewOnly) {
+      return;
+    }
+
     if (!pointerStartRef.current) {
       return;
     }
@@ -164,6 +179,10 @@ export function CanvasSurface({
     event: React.PointerEvent<HTMLDivElement>,
     node: CanvasNode,
   ) => {
+    if (viewOnly) {
+      return;
+    }
+
     event.stopPropagation();
 
     if (event.shiftKey || event.metaKey || event.ctrlKey) {
@@ -180,6 +199,10 @@ export function CanvasSurface({
     node: CanvasNode,
     offset: { x: number; y: number },
   ) => {
+    if (viewOnly) {
+      return;
+    }
+
     const movingNodeIds =
       dragPreview?.nodeIds ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
@@ -204,6 +227,10 @@ export function CanvasSurface({
   };
 
   const handleNodeDragStart = (node: CanvasNode) => {
+    if (viewOnly) {
+      return;
+    }
+
     const movingNodeIds = activeNodeIds.includes(node.id)
       ? activeNodeIds
       : [node.id];
@@ -219,6 +246,10 @@ export function CanvasSurface({
     node: CanvasNode,
     offset: { x: number; y: number },
   ) => {
+    if (viewOnly) {
+      return;
+    }
+
     const movingNodeIds = activeNodeIds.includes(node.id)
       ? activeNodeIds
       : [node.id];
@@ -234,20 +265,26 @@ export function CanvasSurface({
     <div
       ref={containerRef}
       className="h-full relative"
-      onPointerDown={handleBackgroundPointerDown}
-      onPointerMove={handleBackgroundPointerMove}
-      onPointerUp={handleBackgroundPointerUp}
+      style={{
+        pointerEvents: viewOnly ? "none" : "auto",
+        opacity: viewOnly ? 0.1 : 1,
+      }}
+      onPointerDown={viewOnly ? undefined : handleBackgroundPointerDown}
+      onPointerMove={viewOnly ? undefined : handleBackgroundPointerMove}
+      onPointerUp={viewOnly ? undefined : handleBackgroundPointerUp}
     >
-      <SelectedNodeControls
-        nodes={selectedNodes}
-        updateSelectedNodes={updateSelectedNodes}
-      />
+      {viewOnly ? null : (
+        <SelectedNodeControls
+          nodes={selectedNodes}
+          updateSelectedNodes={updateSelectedNodes}
+        />
+      )}
       {nodes.map((node) => (
         <CanvasNodeItem
           key={node.id}
           node={node}
           isSelected={activeNodeIds.includes(node.id)}
-          canDrag={activeToolId === "select"}
+          canDrag={!viewOnly && activeToolId === "select"}
           previewOffset={
             dragPreview &&
             dragPreview.leaderId !== node.id &&
@@ -262,7 +299,7 @@ export function CanvasSurface({
           onDragEnd={handleNodeDragEnd}
         />
       ))}
-      <SelectionOverlay selectionRect={selectionRect} />
+      {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
     </div>
   );
 }

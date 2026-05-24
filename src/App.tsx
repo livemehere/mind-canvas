@@ -25,6 +25,7 @@ export default function App() {
   ]);
   const snapShotLength = snapShot.length;
   const currentSnapShot = snapShot[step];
+  const previousNodes = step > 0 ? snapShot[step - 1].nodes : [];
 
   // nodes, setNodes, removeNode
   const currentNodes = currentSnapShot.nodes;
@@ -142,14 +143,19 @@ export default function App() {
       <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
         Step : {step} / {snapShotLength - 1}
       </div>
-      <CanvasSurface
-        nodes={currentNodes}
-        setNodes={setCurrentSnapShotNodes}
-        activeNodeIds={activeNodeIds}
-        setActiveNodeIds={setActiveNodeIds}
-        activeToolId={activeToolId}
-        onClickBackground={handleClickBackground}
-      />
+      <div className="absolute inset-0">
+        {step > 0 ? <CanvasSurface nodes={previousNodes} viewOnly /> : null}
+      </div>
+      <div className="relative h-full">
+        <CanvasSurface
+          nodes={currentNodes}
+          setNodes={setCurrentSnapShotNodes}
+          activeNodeIds={activeNodeIds}
+          setActiveNodeIds={setActiveNodeIds}
+          activeToolId={activeToolId}
+          onClickBackground={handleClickBackground}
+        />
+      </div>
       <CanvasToolbar activeToolId={activeToolId} setActiveToolId={setActiveToolId} />
       <Leva hidden={activeNodeIds.length === 0} titleBar={{ position: { x: 0, y: 60 } }} />
     </div>
