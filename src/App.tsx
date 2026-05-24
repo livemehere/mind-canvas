@@ -1,21 +1,24 @@
-import { Canvas } from "./components/Canvas";
+import { CanvasSurface } from "./components/canvas/CanvasSurface";
 import { useState } from "react";
 import {
-  type Types,
+  type CanvasNode,
   type Position,
-  DEFAULT_RECT,
-  type SnapShot,
-  DEFAULT_TEXT,
-} from "./core/types";
+  DEFAULT_RECT_NODE,
+  type Snapshot,
+  DEFAULT_TEXT_NODE,
+} from "./core/nodes";
 import { useHotkeys } from "react-hotkeys-hook";
 import { flushSync } from "react-dom";
-import { Toolbar, type ToolId } from "./components/Toolbar";
+import {
+  CanvasToolbar,
+  type CanvasToolId,
+} from "./components/canvas/CanvasToolbar";
 import { Leva } from "leva";
 
 export default function App() {
   // step, snapshot
   const [step, setStep] = useState(0);
-  const [snapShot, setSnapShot] = useState<SnapShot[]>([
+  const [snapShot, setSnapShot] = useState<Snapshot[]>([
     {
       nodes: [],
     },
@@ -25,19 +28,19 @@ export default function App() {
 
   // nodes, setNodes, removeNode
   const currentNodes = currentSnapShot.nodes;
-  const setCurrentSnapShotNodes = (nodes: Types[]) => {
+  const setCurrentSnapShotNodes = (nodes: CanvasNode[]) => {
     setSnapShot((prev) => {
       const newSnapShot = [...prev];
       newSnapShot[step] = { nodes };
       return newSnapShot;
     });
   };
-  const removeNode = (nodeId: string) => {
-    setCurrentSnapShotNodes(currentNodes.filter((n) => n.id !== nodeId));
+  const removeNodes = (nodeIds: string[]) => {
+    setCurrentSnapShotNodes(currentNodes.filter((n) => !nodeIds.includes(n.id)));
   };
 
   const addSnapShot = (duplicateLatest?: boolean) => {
-    const newSnapShot: SnapShot = {
+    const newSnapShot: Snapshot = {
       nodes: [],
     };
 
@@ -49,15 +52,15 @@ export default function App() {
   };
 
   // states
-  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [activeToolId, setActiveToolId] = useState<ToolId>("select");
+  const [activeNodeIds, setActiveNodeIds] = useState<string[]>([]);
+  const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
 
   const createRect = (x: number, y: number) => {
     const id = window.crypto.randomUUID();
     setCurrentSnapShotNodes([
       ...currentNodes,
       {
-        ...DEFAULT_RECT,
+        ...DEFAULT_RECT_NODE,
         id,
         position: { x, y },
       },
@@ -70,7 +73,7 @@ export default function App() {
     setCurrentSnapShotNodes([
       ...currentNodes,
       {
-        ...DEFAULT_TEXT,
+        ...DEFAULT_TEXT_NODE,
         id,
         position: { x, y },
       },
@@ -81,18 +84,18 @@ export default function App() {
   const handleClickBackground = (position: Position) => {
     switch (activeToolId) {
       case "select": {
-        setActiveNodeId(null);
+        setActiveNodeIds([]);
         break;
       }
       case "rect": {
         const id = createRect(position.x, position.y);
-        setActiveNodeId(id);
+        setActiveNodeIds([id]);
         setActiveToolId("select");
         break;
       }
       case "text": {
         const id = createText(position.x, position.y);
-        setActiveNodeId(id);
+        setActiveNodeIds([id]);
         setActiveToolId("select");
         break;
       }
@@ -105,31 +108,31 @@ export default function App() {
   useHotkeys("w", () => setActiveToolId("rect"));
   useHotkeys("e", () => setActiveToolId("text"));
   useHotkeys("Escape", () => {
-    setActiveNodeId(null);
+    setActiveNodeIds([]);
     setActiveToolId("select");
   });
   useHotkeys("Backspace", () => {
-    if (activeNodeId) {
-      removeNode(activeNodeId);
-      setActiveNodeId(null);
+    if (activeNodeIds.length > 0) {
+      removeNodes(activeNodeIds);
+      setActiveNodeIds([]);
     }
   });
 
   useHotkeys("1", () => {
     setStep((prev) => Math.max(0, prev - 1));
-    setActiveNodeId(null);
+    setActiveNodeIds([]);
   });
 
   useHotkeys("2", () => {
     if (step === snapShotLength - 1) return;
     setStep((prev) => prev + 1);
-    setActiveNodeId(null);
+    setActiveNodeIds([]);
   });
 
   useHotkeys("3", () => {
     flushSync(() => {
       addSnapShot(true);
-      setActiveNodeId(null);
+      setActiveNodeIds([]);
       setStep(snapShotLength);
     });
   });
@@ -139,15 +142,16 @@ export default function App() {
       <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
         Step : {step} / {snapShotLength - 1}
       </div>
-      <Canvas
+      <CanvasSurface
         nodes={currentNodes}
         setNodes={setCurrentSnapShotNodes}
-        activeNodeId={activeNodeId}
-        setActiveNodeId={setActiveNodeId}
+        activeNodeIds={activeNodeIds}
+        setActiveNodeIds={setActiveNodeIds}
+        activeToolId={activeToolId}
         onClickBackground={handleClickBackground}
       />
-      <Toolbar activeToolId={activeToolId} setActiveToolId={setActiveToolId} />
-      <Leva hidden={!activeNodeId} titleBar={{ position: { x: 0, y: 60 } }} />
+      <CanvasToolbar activeToolId={activeToolId} setActiveToolId={setActiveToolId} />
+      <Leva hidden={activeNodeIds.length === 0} titleBar={{ position: { x: 0, y: 60 } }} />
     </div>
   );
 }
