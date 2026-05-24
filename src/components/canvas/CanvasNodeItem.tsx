@@ -1,8 +1,9 @@
-import { motion, useDragControls } from "motion/react";
+import { motion } from "motion/react";
 import { useRef } from "react";
 import { type CanvasNode, type RectNode, type TextNode } from "../../core/nodes";
 import {
   CanvasNodeTransformHandles,
+  type RotateHandleModifiers,
   type ResizeHandleModifiers,
   type ResizeHandleDirection,
 } from "./CanvasNodeTransformHandles";
@@ -49,8 +50,16 @@ interface Props {
   ) => void;
   onDoubleClick?: (node: CanvasNode) => void;
   onDragStart: (node: CanvasNode) => void;
-  onDrag: (node: CanvasNode, offset: { x: number; y: number }) => void;
-  onDragEnd: (node: CanvasNode, offset: { x: number; y: number }) => void;
+  onDrag: (
+    node: CanvasNode,
+    offset: { x: number; y: number },
+    modifiers: { shiftKey: boolean },
+  ) => void;
+  onDragEnd: (
+    node: CanvasNode,
+    offset: { x: number; y: number },
+    modifiers: { shiftKey: boolean },
+  ) => void;
 }
 
 export function CanvasNodeItem({
@@ -71,7 +80,7 @@ export function CanvasNodeItem({
   const resizeSnapshotRef = useRef<RectTransformSnapshot | null>(null);
   const rotateSnapshotRef = useRef<RotateSnapshot | null>(null);
   const textSnapshotRef = useRef<TextTransformSnapshot | null>(null);
-  const dragControls = useDragControls();
+  const canPanDragRef = useRef(false);
 
   const handleResizeStart = () => {
     if (node.type !== "rect") {
@@ -139,7 +148,7 @@ export function CanvasNodeItem({
     textSnapshotRef.current = null;
   };
 
-  const handleRotateStart = () => {
+  const handleRotateStart = (_modifiers: RotateHandleModifiers) => {
     if (node.type !== "rect" && node.type !== "text") {
       return;
     }
@@ -149,7 +158,10 @@ export function CanvasNodeItem({
     };
   };
 
-  const handleRotate = (offset: { x: number; y: number }) => {
+  const handleRotate = (
+    offset: { x: number; y: number },
+    modifiers: RotateHandleModifiers,
+  ) => {
     if (node.type !== "rect" && node.type !== "text") {
       return;
     }
@@ -158,9 +170,10 @@ export function CanvasNodeItem({
       rotate: node.rotate,
     };
 
-    const nextRotate = roundNumber(
-      snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
-    );
+    const rawRotate = roundNumber(snapshot.rotate + offset.x * ROTATE_SENSITIVITY);
+    const nextRotate = modifiers.shiftKey
+      ? roundNumber(Math.round(rawRotate / 15) * 15)
+      : rawRotate;
 
     if (node.type === "rect") {
       onRectNodeChange(node.id, (currentNode) => ({
@@ -176,7 +189,10 @@ export function CanvasNodeItem({
     }), { commitHistory: false });
   };
 
-  const handleRotateEnd = (offset: { x: number; y: number }) => {
+  const handleRotateEnd = (
+    offset: { x: number; y: number },
+    modifiers: RotateHandleModifiers,
+  ) => {
     if (node.type !== "rect" && node.type !== "text") {
       return;
     }
@@ -184,9 +200,10 @@ export function CanvasNodeItem({
     const snapshot = rotateSnapshotRef.current ?? {
       rotate: node.rotate,
     };
-    const nextRotate = roundNumber(
-      snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
-    );
+    const rawRotate = roundNumber(snapshot.rotate + offset.x * ROTATE_SENSITIVITY);
+    const nextRotate = modifiers.shiftKey
+      ? roundNumber(Math.round(rawRotate / 15) * 15)
+      : rawRotate;
 
     if (node.type === "rect") {
       onRectNodeChange(node.id, (currentNode) => ({
@@ -206,19 +223,12 @@ export function CanvasNodeItem({
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     onPointerDown(event, node);
 
-    if (!canDrag || event.button !== 0) {
-      return;
-    }
-
-    if (event.shiftKey || event.metaKey || event.ctrlKey) {
-      return;
-    }
-
-    if (isTransformHandleTarget(event.target)) {
-      return;
-    }
-
-    dragControls.start(event);
+    canPanDragRef.current =
+      canDrag &&
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !isTransformHandleTarget(event.target);
   };
 
   return (
@@ -227,10 +237,6 @@ export function CanvasNodeItem({
         itemRef.current = element;
         setNodeRef(node.id, element);
       }}
-      drag={canDrag}
-      dragControls={dragControls}
-      dragListener={false}
-      dragMomentum={false}
       style={{
         position: "absolute",
         left: 0,
@@ -253,9 +259,28 @@ export function CanvasNodeItem({
       transition={getNodeTransition(node, isSelected)}
       onPointerDown={handlePointerDown}
       onDoubleClick={() => onDoubleClick?.(node)}
-      onDragStart={() => onDragStart(node)}
-      onDrag={(_, info) => onDrag(node, info.offset)}
-      onDragEnd={(_, info) => onDragEnd(node, info.offset)}
+      onPanStart={() => {
+        if (!canPanDragRef.current) {
+          return;
+        }
+
+        onDragStart(node);
+      }}
+      onPan={(event, info) => {
+        if (!canPanDragRef.current) {
+          return;
+        }
+
+        onDrag(node, info.offset, { shiftKey: event.shiftKey });
+      }}
+      onPanEnd={(event, info) => {
+        if (!canPanDragRef.current) {
+          return;
+        }
+
+        onDragEnd(node, info.offset, { shiftKey: event.shiftKey });
+        canPanDragRef.current = false;
+      }}
     >
       {(node.type === "rect" || node.type === "text") && isSelected && canDrag ? (
         <CanvasNodeTransformHandles

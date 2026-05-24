@@ -36,7 +36,7 @@ const ALIGN_ACTIONS: AlignAction[] = [
   },
   {
     key: "middle",
-    icon: <AlignCenterVertical size={16} />,
+    icon: <AlignCenterHorizontal size={16} />,
     title: "Middle",
     axis: "x",
     mode: "center",
@@ -57,7 +57,7 @@ const ALIGN_ACTIONS: AlignAction[] = [
   },
   {
     key: "center",
-    icon: <AlignCenterHorizontal size={16} />,
+    icon: <AlignCenterVertical size={16} />,
     title: "Center",
     axis: "y",
     mode: "center",

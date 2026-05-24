@@ -36,6 +36,70 @@ export interface CanvasSurfaceProps {
   canvasSize?: CanvasSize;
 }
 
+interface SnapGuide {
+  x?: number;
+  y?: number;
+}
+
+interface SnapBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  centerX: number;
+  centerY: number;
+}
+
+interface DragSnapCache {
+  movingX: number[];
+  movingY: number[];
+  targetX: number[];
+  targetY: number[];
+}
+
+const DRAG_SNAP_THRESHOLD = 8;
+
+const getSnapBoundsFromElement = (
+  element: HTMLDivElement,
+  canvasRect: DOMRect,
+): SnapBounds => {
+  const rect = element.getBoundingClientRect();
+  const left = rect.left - canvasRect.left;
+  const top = rect.top - canvasRect.top;
+  const right = rect.right - canvasRect.left;
+  const bottom = rect.bottom - canvasRect.top;
+
+  return {
+    left,
+    right,
+    top,
+    bottom,
+    centerX: (left + right) / 2,
+    centerY: (top + bottom) / 2,
+  };
+};
+
+const getBestSnap = (points: number[], targets: number[]) => {
+  let bestTarget: number | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+
+  for (const point of points) {
+    for (const target of targets) {
+      const diff = target - point;
+      if (Math.abs(diff) < Math.abs(bestDiff)) {
+        bestDiff = diff;
+        bestTarget = target;
+      }
+    }
+  }
+
+  if (bestTarget === null || Math.abs(bestDiff) > DRAG_SNAP_THRESHOLD) {
+    return null;
+  }
+
+  return { diff: bestDiff, target: bestTarget };
+};
+
 export function CanvasSurface({
   nodes,
   setNodes = NOOP,
@@ -52,9 +116,9 @@ export function CanvasSurface({
   const pointerStartRef = useRef<Position | null>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const nodesRef = useRef(nodes);
-  const [measuredCanvasSize, setMeasuredCanvasSize] = useState<CanvasSize>(
-    canvasSize,
-  );
+  const dragSnapCacheRef = useRef<DragSnapCache | null>(null);
+  const [measuredCanvasSize, setMeasuredCanvasSize] =
+    useState<CanvasSize>(canvasSize);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null,
   );
@@ -62,6 +126,7 @@ export function CanvasSurface({
     leaderId: string;
     nodeIds: string[];
     offset: Position;
+    guides?: SnapGuide;
   } | null>(null);
 
   const selectedNodes = useMemo(
@@ -301,6 +366,8 @@ export function CanvasSurface({
       dragPreview?.nodeIds ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
 
+    const finalOffset = dragPreview?.offset ?? offset;
+
     commitNodes((currentNodes) =>
       currentNodes.map((currentNode) => {
         if (!movingNodeIds.includes(currentNode.id)) {
@@ -310,14 +377,15 @@ export function CanvasSurface({
         return {
           ...currentNode,
           position: {
-            x: currentNode.position.x + offset.x,
-            y: currentNode.position.y + offset.y,
+            x: currentNode.position.x + finalOffset.x,
+            y: currentNode.position.y + finalOffset.y,
           },
         };
       }),
     );
 
     setDragPreview(null);
+    dragSnapCacheRef.current = null;
   };
 
   const handleNodeDragStart = (node: CanvasNode) => {
@@ -329,16 +397,67 @@ export function CanvasSurface({
       ? activeNodeIds
       : [node.id];
 
+    const canvasRect = containerRef.current?.getBoundingClientRect();
+    if (canvasRect) {
+      const movingBoundsList = movingNodeIds
+        .map((nodeId) => {
+          const element = nodeRefs.current[nodeId];
+          return element ? getSnapBoundsFromElement(element, canvasRect) : null;
+        })
+        .filter((bounds): bounds is SnapBounds => bounds !== null);
+
+      const targetBounds = nodes
+        .filter((currentNode) => !movingNodeIds.includes(currentNode.id))
+        .map((currentNode) => {
+          const element = nodeRefs.current[currentNode.id];
+          return element ? getSnapBoundsFromElement(element, canvasRect) : null;
+        })
+        .filter((bounds): bounds is SnapBounds => bounds !== null);
+
+      if (movingBoundsList.length > 0) {
+        dragSnapCacheRef.current = {
+          movingX: movingBoundsList.flatMap((bounds) => [
+            bounds.left,
+            bounds.centerX,
+            bounds.right,
+          ]),
+          movingY: movingBoundsList.flatMap((bounds) => [
+            bounds.top,
+            bounds.centerY,
+            bounds.bottom,
+          ]),
+          targetX: [
+            ...targetBounds.flatMap((bounds) => [
+              bounds.left,
+              bounds.centerX,
+              bounds.right,
+            ]),
+            measuredCanvasSize.width / 2,
+          ],
+          targetY: [
+            ...targetBounds.flatMap((bounds) => [
+              bounds.top,
+              bounds.centerY,
+              bounds.bottom,
+            ]),
+            measuredCanvasSize.height / 2,
+          ],
+        };
+      }
+    }
+
     setDragPreview({
       leaderId: node.id,
       nodeIds: movingNodeIds,
       offset: { x: 0, y: 0 },
+      guides: {},
     });
   };
 
   const handleNodeDrag = (
     node: CanvasNode,
     offset: { x: number; y: number },
+    modifiers: { shiftKey: boolean },
   ) => {
     if (viewOnly) {
       return;
@@ -348,10 +467,35 @@ export function CanvasSurface({
       ? activeNodeIds
       : [node.id];
 
+    let nextOffset = { x: offset.x, y: offset.y };
+    let guides: SnapGuide | undefined;
+
+    if (modifiers.shiftKey && dragSnapCacheRef.current) {
+      const { movingX, movingY, targetX, targetY } = dragSnapCacheRef.current;
+      const xSnap = getBestSnap(
+        movingX.map((point) => point + offset.x),
+        targetX,
+      );
+      const ySnap = getBestSnap(
+        movingY.map((point) => point + offset.y),
+        targetY,
+      );
+
+      nextOffset = {
+        x: xSnap ? offset.x + xSnap.diff : offset.x,
+        y: ySnap ? offset.y + ySnap.diff : offset.y,
+      };
+      guides = {
+        x: xSnap?.target,
+        y: ySnap?.target,
+      };
+    }
+
     setDragPreview({
       leaderId: node.id,
       nodeIds: movingNodeIds,
-      offset: { x: offset.x, y: offset.y },
+      offset: nextOffset,
+      guides,
     });
   };
 
@@ -381,9 +525,7 @@ export function CanvasSurface({
           isSelected={activeNodeIds.includes(node.id)}
           canDrag={!viewOnly && activeToolId === "select"}
           previewOffset={
-            dragPreview &&
-            dragPreview.leaderId !== node.id &&
-            dragPreview.nodeIds.includes(node.id)
+            dragPreview && dragPreview.nodeIds.includes(node.id)
               ? dragPreview.offset
               : undefined
           }
@@ -397,6 +539,18 @@ export function CanvasSurface({
           onDragEnd={handleNodeDragEnd}
         />
       ))}
+      {dragPreview?.guides?.x !== undefined ? (
+        <div
+          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-purple-400/80"
+          style={{ left: dragPreview.guides.x }}
+        />
+      ) : null}
+      {dragPreview?.guides?.y !== undefined ? (
+        <div
+          className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-purple-400/80"
+          style={{ top: dragPreview.guides.y }}
+        />
+      ) : null}
       {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
     </div>
   );

@@ -67,8 +67,6 @@ export const getNodeStyle = (node: CanvasNode) => {
       };
     case "text":
       return {
-        x: node.position.x,
-        y: node.position.y,
         backgroundColor: node.bgColor,
         borderRadius: node.radius,
         border: `${node.borderWidth}px solid ${node.borderColor}`,

@@ -15,6 +15,10 @@ export interface ResizeHandleModifiers {
   altKey: boolean;
 }
 
+export interface RotateHandleModifiers {
+  shiftKey: boolean;
+}
+
 interface Props {
   onResizeStart: (
     direction: ResizeHandleDirection,
@@ -30,9 +34,15 @@ interface Props {
     offset: { x: number; y: number },
     modifiers: ResizeHandleModifiers,
   ) => void;
-  onRotateStart: () => void;
-  onRotate: (offset: { x: number; y: number }) => void;
-  onRotateEnd: (offset: { x: number; y: number }) => void;
+  onRotateStart: (modifiers: RotateHandleModifiers) => void;
+  onRotate: (
+    offset: { x: number; y: number },
+    modifiers: RotateHandleModifiers,
+  ) => void;
+  onRotateEnd: (
+    offset: { x: number; y: number },
+    modifiers: RotateHandleModifiers,
+  ) => void;
   resizeDirections?: ResizeHandleDirection[];
 }
 
@@ -119,6 +129,12 @@ const getResizeHandleModifiers = (
   altKey: event.altKey,
 });
 
+const getRotateHandleModifiers = (
+  event: PointerEvent | React.PointerEvent<HTMLElement>,
+): RotateHandleModifiers => ({
+  shiftKey: event.shiftKey,
+});
+
 function ResizeHandle({
   direction,
   onResizeStart,
@@ -184,6 +200,8 @@ export function CanvasNodeTransformHandles({
   onRotateEnd,
   resizeDirections = Object.keys(HANDLE_STYLES) as ResizeHandleDirection[],
 }: Props) {
+  const rotateModifiersRef = useRef<RotateHandleModifiers>({ shiftKey: false });
+
   return (
     <>
       <div
@@ -201,9 +219,14 @@ export function CanvasNodeTransformHandles({
       <motion.button
         type="button"
         onPointerDown={stopPointerPropagation}
-        onPanStart={() => onRotateStart()}
-        onPan={(_, info: PanInfo) => onRotate(info.offset)}
-        onPanEnd={(_, info: PanInfo) => onRotateEnd(info.offset)}
+        onPanStart={(event) => {
+          rotateModifiersRef.current = getRotateHandleModifiers(event);
+          onRotateStart(rotateModifiersRef.current);
+        }}
+        onPan={(_, info: PanInfo) => onRotate(info.offset, rotateModifiersRef.current)}
+        onPanEnd={(_, info: PanInfo) =>
+          onRotateEnd(info.offset, rotateModifiersRef.current)
+        }
         style={{
           position: "absolute",
           left: "50%",
