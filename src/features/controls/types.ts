@@ -17,8 +17,14 @@ export interface NumericEditSession {
   initialValues: Map<string, number>;
 }
 
+export interface UpdateSelectedNodesOptions {
+  commitHistory?: boolean;
+  syncMatchingIds?: boolean;
+}
+
 export type UpdateSelectedNodes = (
   updater: (node: CanvasNode) => CanvasNode,
+  options?: UpdateSelectedNodesOptions,
 ) => void;
 
 export interface BaseSelectionControlsProps {

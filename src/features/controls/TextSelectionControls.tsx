@@ -73,6 +73,7 @@ export function TextSelectionControls({
     nextValue: number,
     getValue: (node: TextNode) => number,
     setValue: (node: TextNode, value: number) => TextNode,
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => {
     const session = sessionsRef.current[key];
 
@@ -84,13 +85,18 @@ export function TextSelectionControls({
         const initialValue =
           session.initialValues.get(node.id) ?? getValue(node);
         return setValue(node, initialValue + delta);
-      });
+      }, options);
       return;
     }
 
-    updateSelectedNodes((node) =>
-      node.type === "text" ? setValue(node, nextValue) : node,
+    updateSelectedNodes(
+      (node) => (node.type === "text" ? setValue(node, nextValue) : node),
+      options,
     );
+  };
+
+  const commitSelectedNodes = () => {
+    updateSelectedNodes((node) => node, { syncMatchingIds: true });
   };
 
   const startEdit = () => {
@@ -108,15 +114,20 @@ export function TextSelectionControls({
         hint: text.mixed ? MIXED_HINT : undefined,
         rows: 4,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextText: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "text" ? { ...node, text: nextText } : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text" ? { ...node, text: nextText } : node,
+            { commitHistory: false },
           );
         },
       },
@@ -124,15 +135,20 @@ export function TextSelectionControls({
         value: color.value,
         hint: color.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextColor: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "text" ? { ...node, color: nextColor } : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text" ? { ...node, color: nextColor } : node,
+            { commitHistory: false },
           );
         },
       },
@@ -155,6 +171,7 @@ export function TextSelectionControls({
               ...node,
               typography: { ...node.typography, fontSize: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -169,6 +186,7 @@ export function TextSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "text.fontSize");
           endEdit();
         },
@@ -177,23 +195,28 @@ export function TextSelectionControls({
         value: fontFamily.mixed ? "" : fontFamily.value,
         hint: fontFamily.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextFontFamily: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "text"
-              ? {
-                  ...node,
-                  typography: {
-                    ...node.typography,
-                    fontFamily: nextFontFamily,
-                  },
-                }
-              : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text"
+                ? {
+                    ...node,
+                    typography: {
+                      ...node.typography,
+                      fontFamily: nextFontFamily,
+                    },
+                  }
+                : node,
+            { commitHistory: false },
           );
         },
       },
@@ -217,6 +240,7 @@ export function TextSelectionControls({
               ...node,
               typography: { ...node.typography, fontWeight: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -231,6 +255,7 @@ export function TextSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "text.fontWeight");
           endEdit();
         },
@@ -254,6 +279,7 @@ export function TextSelectionControls({
               ...node,
               typography: { ...node.typography, lineHeight: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -268,6 +294,7 @@ export function TextSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "text.lineHeight");
           endEdit();
         },
@@ -290,6 +317,7 @@ export function TextSelectionControls({
               ...node,
               typography: { ...node.typography, letterSpacing: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -304,6 +332,7 @@ export function TextSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "text.letterSpacing");
           endEdit();
         },
@@ -313,20 +342,28 @@ export function TextSelectionControls({
         value: textAlign.value,
         hint: textAlign.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextTextAlign: TextAlign,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "text"
-              ? {
-                  ...node,
-                  typography: { ...node.typography, textAlign: nextTextAlign },
-                }
-              : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text"
+                ? {
+                    ...node,
+                    typography: {
+                      ...node.typography,
+                      textAlign: nextTextAlign,
+                    },
+                  }
+                : node,
+            { commitHistory: false },
           );
         },
       },
@@ -349,6 +386,7 @@ export function TextSelectionControls({
               ...node,
               typography: { ...node.typography, strokeWidth: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -363,6 +401,7 @@ export function TextSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "text.strokeWidth");
           endEdit();
         },
@@ -371,23 +410,28 @@ export function TextSelectionControls({
         value: strokeColor.value,
         hint: strokeColor.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextStrokeColor: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "text"
-              ? {
-                  ...node,
-                  typography: {
-                    ...node.typography,
-                    strokeColor: nextStrokeColor,
-                  },
-                }
-              : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text"
+                ? {
+                    ...node,
+                    typography: {
+                      ...node.typography,
+                      strokeColor: nextStrokeColor,
+                    },
+                  }
+                : node,
+            { commitHistory: false },
           );
         },
       },

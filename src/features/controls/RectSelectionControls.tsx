@@ -54,6 +54,7 @@ export function RectSelectionControls({
     nextValue: number,
     getValue: (node: RectNode) => number,
     setValue: (node: RectNode, value: number) => RectNode,
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => {
     const session = sessionsRef.current[key];
 
@@ -65,13 +66,18 @@ export function RectSelectionControls({
         const initialValue =
           session.initialValues.get(node.id) ?? getValue(node);
         return setValue(node, initialValue + delta);
-      });
+      }, options);
       return;
     }
 
-    updateSelectedNodes((node) =>
-      node.type === "rect" ? setValue(node, nextValue) : node,
+    updateSelectedNodes(
+      (node) => (node.type === "rect" ? setValue(node, nextValue) : node),
+      options,
     );
+  };
+
+  const commitSelectedNodes = () => {
+    updateSelectedNodes((node) => node, { syncMatchingIds: true });
   };
 
   const startEdit = () => {
@@ -103,6 +109,7 @@ export function RectSelectionControls({
               ...node,
               size: { ...node.size, width: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -117,6 +124,7 @@ export function RectSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "rect.width");
           endEdit();
         },
@@ -140,6 +148,7 @@ export function RectSelectionControls({
               ...node,
               size: { ...node.size, height: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -154,6 +163,7 @@ export function RectSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "rect.height");
           endEdit();
         },
@@ -163,15 +173,20 @@ export function RectSelectionControls({
         hint: content.mixed ? MIXED_HINT : undefined,
         rows: 3,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextContent: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "rect" ? { ...node, content: nextContent } : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "rect" ? { ...node, content: nextContent } : node,
+            { commitHistory: false },
           );
         },
       },
@@ -180,23 +195,28 @@ export function RectSelectionControls({
         value: contentColor.value,
         hint: contentColor.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextContentColor: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "rect"
-              ? {
-                  ...node,
-                  contentTypography: {
-                    ...node.contentTypography,
-                    color: nextContentColor,
-                  },
-                }
-              : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "rect"
+                ? {
+                    ...node,
+                    contentTypography: {
+                      ...node.contentTypography,
+                      color: nextContentColor,
+                    },
+                  }
+                : node,
+            { commitHistory: false },
           );
         },
       },
@@ -205,20 +225,25 @@ export function RectSelectionControls({
         value: backgroundSize.value,
         hint: backgroundSize.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextBackgroundSize: RectBackgroundSize,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) =>
-            node.type === "rect"
-              ? {
-                  ...node,
-                  backgroundSize: nextBackgroundSize,
-                }
-              : node,
+          updateSelectedNodes(
+            (node) =>
+              node.type === "rect"
+                ? {
+                    ...node,
+                    backgroundSize: nextBackgroundSize,
+                  }
+                : node,
+            { commitHistory: false },
           );
         },
       },

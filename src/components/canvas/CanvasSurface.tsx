@@ -17,7 +17,10 @@ import {
 import { SelectionOverlay } from "../../features/selection/SelectionOverlay";
 import { type CanvasToolId } from "./CanvasToolbar";
 import { SelectedNodeControls } from "../../features/controls";
-import { type CanvasSize } from "../../features/controls/types";
+import {
+  type CanvasSize,
+  type UpdateSelectedNodesOptions,
+} from "../../features/controls/types";
 import {
   buildDragSnapCache,
   getSnapPreviewOffset,
@@ -30,7 +33,7 @@ export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
   setNodes?: (
     newNodes: CanvasNode[],
-    options?: { commitHistory?: boolean },
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => void;
   activeNodeIds?: string[];
   setActiveNodeIds?: (ids: string[]) => void;
@@ -109,20 +112,24 @@ export function CanvasSurface({
 
   const commitNodes = (
     updater: (currentNodes: CanvasNode[]) => CanvasNode[],
-    options?: { commitHistory?: boolean },
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => {
     const nextNodes = updater(nodesRef.current);
     nodesRef.current = nextNodes;
     setNodes(nextNodes, options);
   };
 
-  const updateSelectedNodes = (updater: (node: CanvasNode) => CanvasNode) => {
+  const updateSelectedNodes = (
+    updater: (node: CanvasNode) => CanvasNode,
+    options?: UpdateSelectedNodesOptions,
+  ) => {
     commitNodes((currentNodes) =>
       currentNodes.map((currentNode) =>
         activeNodeIds.includes(currentNode.id)
           ? updater(currentNode)
           : currentNode,
       ),
+      options,
     );
   };
 

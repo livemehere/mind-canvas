@@ -7,7 +7,10 @@ import { AlignControls } from "./AlignControls";
 import { BaseSelectionControls } from "./BaseSelectionControls";
 import { RectSelectionControls } from "./RectSelectionControls";
 import { TextSelectionControls } from "./TextSelectionControls";
-import { type CanvasSize, type UpdateSelectedNodes } from "./types";
+import {
+  type CanvasSize,
+  type UpdateSelectedNodes,
+} from "./types";
 
 interface Props {
   nodes: CanvasNode[];

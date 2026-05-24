@@ -34,6 +34,14 @@ interface StepHistory {
   index: number;
 }
 
+const NO_FIELD_CHANGE = Symbol("NO_FIELD_CHANGE");
+
+interface CommitNodesOptions {
+  skipHistory?: boolean;
+  commitHistory?: boolean;
+  syncMatchingIds?: boolean;
+}
+
 const cloneNodes = (nodes: CanvasNode[]) => structuredClone(nodes);
 
 const createSnapshot = (nodes: CanvasNode[]): Snapshot => ({
@@ -63,6 +71,11 @@ const regenerateNodeIds = (nodes: CanvasNode[]) =>
     id: window.crypto.randomUUID(),
   }));
 
+const isPlainObject = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const isEditableElementFocused = () => {
   const activeElement = document.activeElement;
 
@@ -78,19 +91,113 @@ const isEditableElementFocused = () => {
 const getStepOverlayNodes = (snapshots: Snapshot[], step: number) =>
   step > 0 ? snapshots[step - 1].nodes : [];
 
+const createChangedFieldPatch = (
+  baseline: unknown,
+  next: unknown,
+): unknown | typeof NO_FIELD_CHANGE => {
+  if (Object.is(baseline, next)) {
+    return NO_FIELD_CHANGE;
+  }
+
+  if (isPlainObject(baseline) && isPlainObject(next)) {
+    const patch: Record<string, unknown> = {};
+    let hasChange = false;
+
+    const keys = new Set([...Object.keys(baseline), ...Object.keys(next)]);
+    keys.forEach((key) => {
+      const childPatch = createChangedFieldPatch(baseline[key], next[key]);
+      if (childPatch === NO_FIELD_CHANGE) {
+        return;
+      }
+
+      patch[key] = childPatch;
+      hasChange = true;
+    });
+
+    return hasChange ? patch : NO_FIELD_CHANGE;
+  }
+
+  return structuredClone(next);
+};
+
+const applyChangedFieldPatch = <T,>(target: T, patch: unknown): T => {
+  if (isPlainObject(target) && isPlainObject(patch)) {
+    const nextTarget: Record<string, unknown> = { ...target };
+
+    Object.entries(patch).forEach(([key, value]) => {
+      const currentValue = (target as Record<string, unknown>)[key];
+      nextTarget[key] =
+        isPlainObject(currentValue) && isPlainObject(value)
+          ? applyChangedFieldPatch(currentValue, value)
+          : structuredClone(value);
+    });
+
+    return nextTarget as T;
+  }
+
+  return structuredClone(patch) as T;
+};
+
+const getChangedNodePatchMap = (baselineNodes: CanvasNode[], nextNodes: CanvasNode[]) => {
+  const baselineNodeMap = new Map(
+    baselineNodes.map((node) => [node.id, node] as const),
+  );
+  const changedNodePatchMap = new Map<string, unknown>();
+
+  nextNodes.forEach((node) => {
+    const baselineNode = baselineNodeMap.get(node.id);
+    if (!baselineNode) {
+      return;
+    }
+
+    const patch = createChangedFieldPatch(baselineNode, node);
+    if (patch === NO_FIELD_CHANGE) {
+      return;
+    }
+
+    changedNodePatchMap.set(node.id, patch);
+  });
+
+  return changedNodePatchMap;
+};
+
+const oncePerKeypress = (
+  handler: () => void,
+  options?: { preventDefault?: boolean },
+) => (event: KeyboardEvent) => {
+    if (event.repeat) {
+      return;
+    }
+
+    if (options?.preventDefault) {
+      event.preventDefault();
+    }
+
+    handler();
+  };
+
 export default function App() {
   const [step, setStep] = useState(0);
   const [snapShot, setSnapShot] = useState<Snapshot[]>([{ nodes: [] }]);
   const [histories, setHistories] = useState<StepHistory[]>([
     createStepHistory([]),
   ]);
+  const [autoAddSnapshotOnAdvance, setAutoAddSnapshotOnAdvance] =
+    useState(true);
+  const [duplicateNodesIntoNewSnapshot, setDuplicateNodesIntoNewSnapshot] =
+    useState(true);
+  const [syncMatchingIdEdits, setSyncMatchingIdEdits] = useState(false);
   const [showPreviousOverlay, setShowPreviousOverlay] = useState(true);
   const [activeNodeIds, setActiveNodeIds] = useState<string[]>([]);
   const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
   const latestStateRef = useRef({
     step: 0,
     snapShot: [{ nodes: [] }] as Snapshot[],
+    histories: [createStepHistory([])] as StepHistory[],
     activeNodeIds: [] as string[],
+    autoAddSnapshotOnAdvance: true,
+    duplicateNodesIntoNewSnapshot: true,
+    syncMatchingIdEdits: false,
   });
 
   const snapShotLength = snapShot.length;
@@ -102,50 +209,121 @@ export default function App() {
   useEffect(() => installLevaTextareaEnterBehavior(), []);
 
   useEffect(() => {
-    latestStateRef.current = { step, snapShot, activeNodeIds };
-  }, [step, snapShot, activeNodeIds]);
+    latestStateRef.current = {
+      step,
+      snapShot,
+      histories,
+      activeNodeIds,
+      autoAddSnapshotOnAdvance,
+      duplicateNodesIntoNewSnapshot,
+      syncMatchingIdEdits,
+    };
+  }, [
+    step,
+    snapShot,
+    histories,
+    activeNodeIds,
+    autoAddSnapshotOnAdvance,
+    duplicateNodesIntoNewSnapshot,
+    syncMatchingIdEdits,
+  ]);
 
   const commitNodesToStep = (
     targetStep: number,
     nodes: CanvasNode[],
-    options?: { skipHistory?: boolean; commitHistory?: boolean },
+    options?: CommitNodesOptions,
   ) => {
-    setSnapShot((prev) => {
-      const next = [...prev];
-      next[targetStep] = createSnapshot(nodes);
-      return next;
-    });
+    const {
+      snapShot: previousSnapshots,
+      histories: previousHistories,
+      syncMatchingIdEdits: shouldSyncMatchingIds,
+    } = latestStateRef.current;
 
-    if (options?.skipHistory || options?.commitHistory === false) {
-      return;
+    let nextSnapshots = [...previousSnapshots];
+    nextSnapshots[targetStep] = createSnapshot(nodes);
+    const affectedSteps = new Set([targetStep]);
+
+    if (
+      shouldSyncMatchingIds &&
+      options?.syncMatchingIds &&
+      !options.skipHistory &&
+      options.commitHistory !== false
+    ) {
+      const targetHistory =
+        previousHistories[targetStep] ??
+        createStepHistory(previousSnapshots[targetStep]?.nodes ?? []);
+      const baselineNodes =
+        targetHistory.snapshots[targetHistory.index]?.nodes ??
+        previousSnapshots[targetStep]?.nodes ??
+        [];
+      const changedNodePatchMap = getChangedNodePatchMap(baselineNodes, nodes);
+
+      if (changedNodePatchMap.size > 0) {
+        nextSnapshots = nextSnapshots.map((snapshot, stepIndex) => {
+          if (stepIndex === targetStep) {
+            return snapshot;
+          }
+
+          let didChange = false;
+          const nextNodes = snapshot.nodes.map((node) => {
+            const changedNodePatch = changedNodePatchMap.get(node.id);
+            if (!changedNodePatch) {
+              return node;
+            }
+
+            didChange = true;
+            return applyChangedFieldPatch(node, changedNodePatch);
+          });
+
+          if (!didChange) {
+            return snapshot;
+          }
+
+          affectedSteps.add(stepIndex);
+          return createSnapshot(nextNodes);
+        });
+      }
     }
 
-    setHistories((prev) => {
-      const next = [...prev];
-      const stepHistory = next[targetStep] ?? createStepHistory([]);
-      const baseSnapshots = stepHistory.snapshots.slice(
-        0,
-        stepHistory.index + 1,
-      );
-      const lastNodes = baseSnapshots.at(-1)?.nodes ?? [];
+    let nextHistories = previousHistories;
+    if (!options?.skipHistory && options?.commitHistory !== false) {
+      nextHistories = [...previousHistories];
 
-      if (nodesEqual(lastNodes, nodes)) {
-        next[targetStep] = stepHistory;
-        return next;
-      }
+      affectedSteps.forEach((stepIndex) => {
+        const stepNodes = nextSnapshots[stepIndex]?.nodes ?? [];
+        const stepHistory = nextHistories[stepIndex] ?? createStepHistory(stepNodes);
+        const baseSnapshots = stepHistory.snapshots.slice(
+          0,
+          stepHistory.index + 1,
+        );
+        const lastNodes = baseSnapshots.at(-1)?.nodes ?? [];
 
-      next[targetStep] = {
-        snapshots: [...baseSnapshots, createSnapshot(nodes)],
-        index: baseSnapshots.length,
-      };
+        if (nodesEqual(lastNodes, stepNodes)) {
+          nextHistories[stepIndex] = stepHistory;
+          return;
+        }
 
-      return next;
-    });
+        nextHistories[stepIndex] = {
+          snapshots: [...baseSnapshots, createSnapshot(stepNodes)],
+          index: baseSnapshots.length,
+        };
+      });
+    }
+
+    latestStateRef.current = {
+      ...latestStateRef.current,
+      snapShot: nextSnapshots,
+      histories: nextHistories,
+    };
+    setSnapShot(nextSnapshots);
+    if (nextHistories !== previousHistories) {
+      setHistories(nextHistories);
+    }
   };
 
   const setCurrentSnapShotNodes = (
     nodes: CanvasNode[],
-    options?: { commitHistory?: boolean },
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => {
     commitNodesToStep(step, nodes, options);
   };
@@ -162,6 +340,25 @@ export default function App() {
     setSnapShot((prev) => [...prev, createSnapshot(nextNodes)]);
     setHistories((prev) => [...prev, createStepHistory(nextNodes)]);
     toast.success("Snapshot added");
+  };
+
+  const goToNextStep = () => {
+    if (step < snapShotLength - 1) {
+      setStep((prev) => prev + 1);
+      setActiveNodeIds([]);
+      return;
+    }
+
+    if (!autoAddSnapshotOnAdvance) {
+      toast.warning("Already at the last step");
+      return;
+    }
+
+    flushSync(() => {
+      addSnapShot(duplicateNodesIntoNewSnapshot);
+      setActiveNodeIds([]);
+      setStep(snapShotLength);
+    });
   };
 
   const removeCurrentStep = () => {
@@ -356,25 +553,34 @@ export default function App() {
     toast.success("Copied to next snapshot");
   };
 
-  useHotkeys("q", () => setActiveToolId("select"));
-  useHotkeys("w", () => setActiveToolId("rect"));
-  useHotkeys("e", () => setActiveToolId("text"));
-  useHotkeys("meta+z,ctrl+z", () => undo(), { preventDefault: true });
-  useHotkeys("meta+shift+z,ctrl+shift+z", () => redo(), {
-    preventDefault: true,
-  });
-  useHotkeys("meta+c,ctrl+c", () => void copySelectedNodes(), {
-    preventDefault: true,
-  });
-  useHotkeys("meta+x,ctrl+x", () => void cutSelectedNodes(), {
-    preventDefault: true,
-  });
-  useHotkeys("meta+d,ctrl+d", () => duplicateSelectedNodesToNextSnapshot(), {
-    preventDefault: true,
-  });
+  useHotkeys("q", oncePerKeypress(() => setActiveToolId("select")));
+  useHotkeys("w", oncePerKeypress(() => setActiveToolId("rect")));
+  useHotkeys("e", oncePerKeypress(() => setActiveToolId("text")));
+  useHotkeys(
+    "meta+z,ctrl+z",
+    oncePerKeypress(() => undo(), { preventDefault: true }),
+  );
+  useHotkeys(
+    "meta+shift+z,ctrl+shift+z",
+    oncePerKeypress(() => redo(), { preventDefault: true }),
+  );
+  useHotkeys(
+    "meta+c,ctrl+c",
+    oncePerKeypress(() => void copySelectedNodes(), { preventDefault: true }),
+  );
+  useHotkeys(
+    "meta+x,ctrl+x",
+    oncePerKeypress(() => void cutSelectedNodes(), { preventDefault: true }),
+  );
+  useHotkeys(
+    "meta+d,ctrl+d",
+    oncePerKeypress(() => duplicateSelectedNodesToNextSnapshot(), {
+      preventDefault: true,
+    }),
+  );
   useHotkeys(
     "Enter",
-    () => {
+    oncePerKeypress(() => {
       if (isEditableElementFocused() || selectedNodes.length !== 1) {
         return;
       }
@@ -388,45 +594,41 @@ export default function App() {
       if (selectedNode.type === "text") {
         requestControlFocus("text.text");
       }
-    },
-    { preventDefault: true },
+    }, { preventDefault: true }),
   );
-  useHotkeys("shift+o", () => setShowPreviousOverlay((prev) => !prev));
-  useHotkeys("Escape", () => {
-    setActiveNodeIds([]);
-    setActiveToolId("select");
-  });
-  useHotkeys("Backspace", () => {
-    if (activeNodeIds.length === 0) {
-      return;
-    }
-
-    removeNodes(activeNodeIds);
-    setActiveNodeIds([]);
-  });
-  useHotkeys("1", () => {
-    setStep((prev) => Math.max(0, prev - 1));
-    setActiveNodeIds([]);
-    if (step === 0) {
-      toast.warning("Already at the first step");
-    }
-  });
-  useHotkeys("2", () => {
-    if (step === snapShotLength - 1) {
-      toast.warning("Already at the last step");
-      return;
-    }
-
-    setStep((prev) => prev + 1);
-    setActiveNodeIds([]);
-  });
-  useHotkeys("3", () => {
-    flushSync(() => {
-      addSnapShot(true);
+  useHotkeys(
+    "shift+o",
+    oncePerKeypress(() => setShowPreviousOverlay((prev) => !prev)),
+  );
+  useHotkeys(
+    "Escape",
+    oncePerKeypress(() => {
       setActiveNodeIds([]);
-      setStep(snapShotLength);
-    });
-  });
+      setActiveToolId("select");
+    }),
+  );
+  useHotkeys(
+    "Backspace",
+    oncePerKeypress(() => {
+      if (activeNodeIds.length === 0) {
+        return;
+      }
+
+      removeNodes(activeNodeIds);
+      setActiveNodeIds([]);
+    }),
+  );
+  useHotkeys(
+    "1",
+    oncePerKeypress(() => {
+      setStep((prev) => Math.max(0, prev - 1));
+      setActiveNodeIds([]);
+      if (step === 0) {
+        toast.warning("Already at the first step");
+      }
+    }),
+  );
+  useHotkeys("2", oncePerKeypress(() => goToNextStep()));
 
   useEffect(() => {
     const handlePaste = async (event: ClipboardEvent) => {
@@ -516,6 +718,18 @@ export default function App() {
             </span>
             <button
               type="button"
+              onClick={() => setSyncMatchingIdEdits((prev) => !prev)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                syncMatchingIdEdits
+                  ? "bg-purple-600 text-white"
+                  : "bg-white/6 text-white/60 hover:bg-white/12 hover:text-white"
+              }`}
+              title="Apply final edits to nodes with the same id across snapshots"
+            >
+              Same ID
+            </button>
+            <button
+              type="button"
               onClick={removeCurrentStep}
               disabled={snapShotLength === 1}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
@@ -551,6 +765,10 @@ export default function App() {
           setActiveToolId={setActiveToolId}
           showPreviousOverlay={showPreviousOverlay}
           setShowPreviousOverlay={setShowPreviousOverlay}
+          autoAddSnapshotOnAdvance={autoAddSnapshotOnAdvance}
+          setAutoAddSnapshotOnAdvance={setAutoAddSnapshotOnAdvance}
+          duplicateNodesIntoNewSnapshot={duplicateNodesIntoNewSnapshot}
+          setDuplicateNodesIntoNewSnapshot={setDuplicateNodesIntoNewSnapshot}
         />
         <Leva
           hidden={activeNodeIds.length === 0}

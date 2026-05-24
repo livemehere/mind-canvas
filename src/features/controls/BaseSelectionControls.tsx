@@ -76,6 +76,7 @@ export function BaseSelectionControls({
     nextValue: number,
     getValue: (node: CanvasNode) => number,
     setValue: (node: CanvasNode, value: number) => CanvasNode,
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => {
     const session = sessionsRef.current[key];
 
@@ -86,11 +87,15 @@ export function BaseSelectionControls({
         const initialValue =
           session.initialValues.get(node.id) ?? getValue(node);
         return setValue(node, initialValue + delta);
-      });
+      }, options);
       return;
     }
 
-    updateSelectedNodes((node) => setValue(node, nextValue));
+    updateSelectedNodes((node) => setValue(node, nextValue), options);
+  };
+
+  const commitSelectedNodes = () => {
+    updateSelectedNodes((node) => node, { syncMatchingIds: true });
   };
 
   const startEdit = () => {
@@ -117,6 +122,7 @@ export function BaseSelectionControls({
               ...node,
               position: { ...node.position, x: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -131,6 +137,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.positionX");
           endEdit();
         },
@@ -149,6 +156,7 @@ export function BaseSelectionControls({
               ...node,
               position: { ...node.position, y: value },
             }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -163,6 +171,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.positionY");
           endEdit();
         },
@@ -184,6 +193,7 @@ export function BaseSelectionControls({
             nextOpacity,
             (node) => node.opacity,
             (node, value) => ({ ...node, opacity: value }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -198,6 +208,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.opacity");
           endEdit();
         },
@@ -217,6 +228,7 @@ export function BaseSelectionControls({
             nextScale,
             (node) => node.scale,
             (node, value) => ({ ...node, scale: value }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -231,6 +243,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.scale");
           endEdit();
         },
@@ -250,6 +263,7 @@ export function BaseSelectionControls({
             nextRotate,
             (node) => node.rotate,
             (node, value) => ({ ...node, rotate: value }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -264,6 +278,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.rotate");
           endEdit();
         },
@@ -283,6 +298,7 @@ export function BaseSelectionControls({
             nextZIndex,
             (node) => node.zIndex,
             (node, value) => ({ ...node, zIndex: value }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -297,6 +313,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.zIndex");
           endEdit();
         },
@@ -305,17 +322,23 @@ export function BaseSelectionControls({
         value: borderColor.value,
         hint: borderColor.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextBorderColor: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) => ({
-            ...node,
-            borderColor: nextBorderColor,
-          }));
+          updateSelectedNodes(
+            (node) => ({
+              ...node,
+              borderColor: nextBorderColor,
+            }),
+            { commitHistory: false },
+          );
         },
       },
       borderWidth: {
@@ -334,6 +357,7 @@ export function BaseSelectionControls({
             nextBorderWidth,
             (node) => node.borderWidth,
             (node, value) => ({ ...node, borderWidth: value }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -348,6 +372,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.borderWidth");
           endEdit();
         },
@@ -356,14 +381,20 @@ export function BaseSelectionControls({
         value: bgColor.value,
         hint: bgColor.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextBgColor: string,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) => ({ ...node, bgColor: nextBgColor }));
+          updateSelectedNodes(
+            (node) => ({ ...node, bgColor: nextBgColor }),
+            { commitHistory: false },
+          );
         },
       },
       radius: {
@@ -382,6 +413,7 @@ export function BaseSelectionControls({
             nextRadius,
             (node) => node.radius,
             (node, value) => ({ ...node, radius: value }),
+            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -396,6 +428,7 @@ export function BaseSelectionControls({
           );
         },
         onEditEnd: () => {
+          commitSelectedNodes();
           clearNumericEditSession(sessionsRef, "base.radius");
           endEdit();
         },
@@ -405,17 +438,23 @@ export function BaseSelectionControls({
         value: transition.value,
         hint: transition.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
-        onEditEnd: endEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
         onChange: (
           nextTransition: NodeTransition,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes((node) => ({
-            ...node,
-            transition: nextTransition,
-          }));
+          updateSelectedNodes(
+            (node) => ({
+              ...node,
+              transition: nextTransition,
+            }),
+            { commitHistory: false },
+          );
         },
       },
     }),

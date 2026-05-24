@@ -28,6 +28,12 @@ interface Props {
   setActiveToolId: React.Dispatch<React.SetStateAction<CanvasToolId>>;
   showPreviousOverlay: boolean;
   setShowPreviousOverlay: React.Dispatch<React.SetStateAction<boolean>>;
+  autoAddSnapshotOnAdvance: boolean;
+  setAutoAddSnapshotOnAdvance: React.Dispatch<React.SetStateAction<boolean>>;
+  duplicateNodesIntoNewSnapshot: boolean;
+  setDuplicateNodesIntoNewSnapshot: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
 }
 
 export function CanvasToolbar({
@@ -35,6 +41,10 @@ export function CanvasToolbar({
   setActiveToolId,
   showPreviousOverlay,
   setShowPreviousOverlay,
+  autoAddSnapshotOnAdvance,
+  setAutoAddSnapshotOnAdvance,
+  duplicateNodesIntoNewSnapshot,
+  setDuplicateNodesIntoNewSnapshot,
 }: Props) {
   return (
     <div className="absolute left-1/2 bottom-5 z-10 -translate-x-1/2">
@@ -60,6 +70,28 @@ export function CanvasToolbar({
           title="Toggle previous overlay (Shift+O)"
         >
           {showPreviousOverlay ? <Eye size={18} /> : <EyeOff size={18} />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAutoAddSnapshotOnAdvance((prev) => !prev)}
+          className={cn(
+            "rounded-xl bg-neutral-800/90 px-2.5 py-2 text-[11px] font-semibold text-white/80 transition hover:opacity-80 active:scale-90",
+            autoAddSnapshotOnAdvance && "bg-purple-600 text-white",
+          )}
+          title="Auto add a new snapshot when advancing past the end"
+        >
+          Auto+
+        </button>
+        <button
+          type="button"
+          onClick={() => setDuplicateNodesIntoNewSnapshot((prev) => !prev)}
+          className={cn(
+            "rounded-xl bg-neutral-800/90 px-2.5 py-2 text-[11px] font-semibold text-white/80 transition hover:opacity-80 active:scale-90",
+            duplicateNodesIntoNewSnapshot && "bg-purple-600 text-white",
+          )}
+          title="Clone current nodes into newly added snapshots"
+        >
+          Clone
         </button>
       </div>
     </div>
