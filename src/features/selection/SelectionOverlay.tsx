@@ -1,4 +1,4 @@
-import { type SelectionRect } from "./utils";
+import { type SelectionRect } from "./helpers";
 
 interface Props {
   selectionRect: SelectionRect | null;
