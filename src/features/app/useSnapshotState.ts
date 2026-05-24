@@ -218,6 +218,54 @@ export const useSnapshotState = () => {
     toast.success("Snapshot removed");
   };
 
+  const hydrateSnapshots = (snapshots: Snapshot[], nextStep?: number) => {
+    if (snapshots.length === 0) {
+      return;
+    }
+
+    const normalizedSnapshots = snapshots.map((snapshot) =>
+      createSnapshot(snapshot.nodes),
+    );
+    const normalizedHistories = normalizedSnapshots.map((snapshot) =>
+      createStepHistory(snapshot.nodes),
+    );
+    const safeStep = Math.max(
+      0,
+      Math.min(nextStep ?? 0, normalizedSnapshots.length - 1),
+    );
+
+    latestStateRef.current = {
+      ...latestStateRef.current,
+      step: safeStep,
+      snapShot: normalizedSnapshots,
+      histories: normalizedHistories,
+      activeNodeIds: [],
+    };
+    setSnapShot(normalizedSnapshots);
+    setHistories(normalizedHistories);
+    setStepEntranceNodeIds([]);
+    setActiveNodeIds([]);
+    setStep(safeStep);
+  };
+
+  const clearSnapshots = () => {
+    const emptySnapshots = [createSnapshot([])];
+    const emptyHistories = [createStepHistory([])];
+
+    latestStateRef.current = {
+      ...latestStateRef.current,
+      step: 0,
+      snapShot: emptySnapshots,
+      histories: emptyHistories,
+      activeNodeIds: [],
+    };
+    setSnapShot(emptySnapshots);
+    setHistories(emptyHistories);
+    setStepEntranceNodeIds([]);
+    setActiveNodeIds([]);
+    setStep(0);
+  };
+
   const undo = () => {
     if (currentHistory.index === 0) {
       toast.warning("Nothing to undo");
@@ -281,6 +329,8 @@ export const useSnapshotState = () => {
     goToStep,
     goToNextStep,
     removeCurrentStep,
+    hydrateSnapshots,
+    clearSnapshots,
     undo,
     redo,
   };

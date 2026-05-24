@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Leva } from "leva";
-import { Trash2 } from "lucide-react";
+import { Eraser, Save, Trash2, Upload } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { CanvasSurface } from "./components/canvas/CanvasSurface";
 import { CanvasToolbar } from "./components/canvas/CanvasToolbar";
 import { type CanvasToolId } from "./components/canvas/types";
-import { type CanvasNode, type Position } from "./core/nodes";
+import { type CanvasNode, type Position, type Snapshot } from "./core/nodes";
 import {
   installLevaTextareaEnterBehavior,
   requestControlFocus,
@@ -21,6 +21,54 @@ import { useCanvasHotkeys } from "./features/app/useCanvasHotkeys";
 import { useGlobalPasteHandler } from "./features/app/useGlobalPasteHandler";
 import { useSnapshotState } from "./features/app/useSnapshotState";
 import { readNodesFromClipboard, writeNodesToClipboard } from "./utils/clipboard";
+
+const SNAPSHOT_STORAGE_KEY = "mind-canvas:snapshots";
+
+interface SnapshotPayload {
+  step: number;
+  snapShot: Snapshot[];
+}
+
+const isSnapshotArray = (value: unknown): value is Snapshot[] => {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.every(
+    (snapshot) =>
+      typeof snapshot === "object" &&
+      snapshot !== null &&
+      Array.isArray((snapshot as { nodes?: unknown }).nodes),
+  );
+};
+
+const normalizeSnapshotPayload = (value: unknown): SnapshotPayload | null => {
+  if (isSnapshotArray(value)) {
+    return {
+      step: 0,
+      snapShot: value,
+    };
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const record = value as {
+    step?: unknown;
+    snapShot?: unknown;
+    snapshots?: unknown;
+  };
+  const snapshots = record.snapShot ?? record.snapshots;
+  if (!isSnapshotArray(snapshots)) {
+    return null;
+  }
+
+  return {
+    step: typeof record.step === "number" ? record.step : 0,
+    snapShot: snapshots,
+  };
+};
 
 export default function App() {
   const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
@@ -48,6 +96,8 @@ export default function App() {
     goToStep,
     goToNextStep,
     removeCurrentStep,
+    hydrateSnapshots,
+    clearSnapshots,
     undo,
     redo,
   } = useSnapshotState();
@@ -223,6 +273,54 @@ export default function App() {
     toast.success(linkedNodeIds.length === 1 ? "Node detached" : "Nodes detached");
   };
 
+  const saveSnapshotsToLocalStorage = () => {
+    const payload: SnapshotPayload = {
+      step,
+      snapShot,
+    };
+
+    localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(payload));
+    toast.success("Saved to localStorage");
+  };
+
+  const loadSnapshotsFromJson = () => {
+    const initialValue = localStorage.getItem(SNAPSHOT_STORAGE_KEY) ?? "";
+    const input = window.prompt("Paste snapshot JSON", initialValue);
+    if (input === null) {
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(input);
+    } catch {
+      toast.error("Invalid JSON");
+      return;
+    }
+
+    const payload = normalizeSnapshotPayload(parsed);
+    if (!payload || payload.snapShot.length === 0) {
+      toast.error("Invalid snapshot payload");
+      return;
+    }
+
+    hydrateSnapshots(payload.snapShot, payload.step);
+    localStorage.setItem(
+      SNAPSHOT_STORAGE_KEY,
+      JSON.stringify({
+        step: payload.step,
+        snapShot: payload.snapShot,
+      } satisfies SnapshotPayload),
+    );
+    toast.success("Loaded snapshots from JSON");
+  };
+
+  const clearSavedSnapshots = () => {
+    localStorage.removeItem(SNAPSHOT_STORAGE_KEY);
+    clearSnapshots();
+    toast.success("Cleared localStorage snapshots");
+  };
+
   useCanvasHotkeys({
     onSelectTool: () => setActiveToolId("select"),
     onRectTool: () => setActiveToolId("rect"),
@@ -261,6 +359,7 @@ export default function App() {
       setActiveNodeIds([]);
     },
     onRemoveSnapshot: removeCurrentStep,
+    onSave: saveSnapshotsToLocalStorage,
     onStepPrev: () => {
       if (step === 0) {
         toast.warning("Already at the first step");
@@ -296,9 +395,33 @@ export default function App() {
               onClick={removeCurrentStep}
               disabled={snapShotLength === 1}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-              title="Remove current snapshot"
+              title="Remove current snapshot (Cmd/Ctrl+Backspace)"
             >
               <Trash2 size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={saveSnapshotsToLocalStorage}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+              title="Save snapshots to localStorage (Cmd/Ctrl+S)"
+            >
+              <Save size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={loadSnapshotsFromJson}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+              title="Load snapshots from JSON and store to localStorage"
+            >
+              <Upload size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={clearSavedSnapshots}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+              title="Clear localStorage snapshots and canvas"
+            >
+              <Eraser size={14} />
             </button>
           </div>
         </div>
