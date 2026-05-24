@@ -63,6 +63,7 @@ export function CanvasSurface({
   const nodesRef = useRef(nodes);
   const dragSnapCacheRef = useRef<DragSnapCache | null>(null);
   const dragNodeIdsRef = useRef<string[] | null>(null);
+  const dragAxisRef = useRef<"x" | "y" | null>(null);
   const [measuredCanvasSize, setMeasuredCanvasSize] =
     useState<CanvasSize>(canvasSize);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
@@ -338,6 +339,7 @@ export function CanvasSurface({
     setDragPreview(null);
     dragSnapCacheRef.current = null;
     dragNodeIdsRef.current = null;
+    dragAxisRef.current = null;
   };
 
   const handleNodeDragStart = (
@@ -377,6 +379,7 @@ export function CanvasSurface({
     }
 
     dragNodeIdsRef.current = movingNodeIds;
+    dragAxisRef.current = null;
 
     const canvasRect = containerRef.current?.getBoundingClientRect();
     if (canvasRect) {
@@ -410,10 +413,23 @@ export function CanvasSurface({
       dragNodeIdsRef.current ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
 
+    if (modifiers.shiftKey && dragAxisRef.current === null) {
+      dragAxisRef.current =
+        Math.abs(offset.x) >= Math.abs(offset.y) ? "x" : "y";
+    }
+
+    if (!modifiers.shiftKey) {
+      dragAxisRef.current = null;
+    }
+
     let nextOffset = { x: offset.x, y: offset.y };
     let guides: SnapGuide | undefined;
 
-    if (modifiers.shiftKey && dragSnapCacheRef.current) {
+    if (dragAxisRef.current === "x") {
+      nextOffset = { x: offset.x, y: 0 };
+    } else if (dragAxisRef.current === "y") {
+      nextOffset = { x: 0, y: offset.y };
+    } else if (modifiers.shiftKey && dragSnapCacheRef.current) {
       const snappedPreview = getSnapPreviewOffset(
         offset,
         dragSnapCacheRef.current,
@@ -455,6 +471,7 @@ export function CanvasSurface({
           node={node}
           isSelected={activeNodeIds.includes(node.id)}
           canDrag={!viewOnly && activeToolId === "select"}
+          isPreviewing={dragPreview?.nodeIds.includes(node.id) === true}
           previewOffset={
             dragPreview && dragPreview.nodeIds.includes(node.id)
               ? dragPreview.offset

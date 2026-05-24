@@ -6,8 +6,12 @@ import {
   type Typography,
 } from "../../core/nodes";
 
-export const getNodeTransition = (node: CanvasNode, isSelected: boolean) => {
-  if (isSelected) {
+export const getNodeTransition = (
+  node: CanvasNode,
+  isSelected: boolean,
+  isPreviewing = false,
+) => {
+  if (isSelected || isPreviewing) {
     return { duration: 0 };
   }
 

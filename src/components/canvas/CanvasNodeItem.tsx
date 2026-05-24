@@ -37,6 +37,7 @@ interface Props {
   autoCenterText?: boolean;
   textLayoutResetToken?: number;
   previewOffset?: { x: number; y: number };
+  isPreviewing?: boolean;
   setNodeRef: (nodeId: string, element: HTMLDivElement | null) => void;
   onRectNodeChange: (
     nodeId: string,
@@ -71,6 +72,7 @@ export function CanvasNodeItem({
   isSelected,
   canDrag,
   previewOffset,
+  isPreviewing = false,
   setNodeRef,
   onRectNodeChange,
   onTextNodeChange,
@@ -280,7 +282,7 @@ export function CanvasNodeItem({
         rotate: node.rotate,
         ...getNodeStyle(node),
       }}
-      transition={getNodeTransition(node, isSelected)}
+      transition={getNodeTransition(node, isSelected, isPreviewing)}
       onPointerDown={handlePointerDown}
       onDoubleClick={() => onDoubleClick?.(node)}
       onPanStart={(event) => {
