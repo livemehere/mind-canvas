@@ -14,6 +14,7 @@ import {
   type CanvasToolId,
 } from "./components/canvas/CanvasToolbar";
 import { Leva } from "leva";
+import { toast, Toaster } from "sonner";
 
 export default function App() {
   // step, snapshot
@@ -37,7 +38,9 @@ export default function App() {
     });
   };
   const removeNodes = (nodeIds: string[]) => {
-    setCurrentSnapShotNodes(currentNodes.filter((n) => !nodeIds.includes(n.id)));
+    setCurrentSnapShotNodes(
+      currentNodes.filter((n) => !nodeIds.includes(n.id)),
+    );
   };
 
   const addSnapShot = (duplicateLatest?: boolean) => {
@@ -50,6 +53,7 @@ export default function App() {
     }
 
     setSnapShot((prev) => [...prev, newSnapShot]);
+    toast.success("Snapshot added");
   };
 
   // states
@@ -122,10 +126,16 @@ export default function App() {
   useHotkeys("1", () => {
     setStep((prev) => Math.max(0, prev - 1));
     setActiveNodeIds([]);
+    if (step === 0) {
+      toast.warning("Already at the first step");
+    }
   });
 
   useHotkeys("2", () => {
-    if (step === snapShotLength - 1) return;
+    if (step === snapShotLength - 1) {
+      toast.warning("Already at the last step");
+      return;
+    }
     setStep((prev) => prev + 1);
     setActiveNodeIds([]);
   });
@@ -139,25 +149,34 @@ export default function App() {
   });
 
   return (
-    <div className="h-full relative">
-      <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
-        Step : {step} / {snapShotLength - 1}
-      </div>
-      <div className="absolute inset-0">
-        {step > 0 ? <CanvasSurface nodes={previousNodes} viewOnly /> : null}
-      </div>
-      <div className="relative h-full">
-        <CanvasSurface
-          nodes={currentNodes}
-          setNodes={setCurrentSnapShotNodes}
-          activeNodeIds={activeNodeIds}
-          setActiveNodeIds={setActiveNodeIds}
+    <>
+      <Toaster position={"top-center"} richColors />
+      <div className="h-full relative">
+        <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
+          Step : {step} / {snapShotLength - 1}
+        </div>
+        <div className="absolute inset-0">
+          {step > 0 ? <CanvasSurface nodes={previousNodes} viewOnly /> : null}
+        </div>
+        <div className="relative h-full">
+          <CanvasSurface
+            nodes={currentNodes}
+            setNodes={setCurrentSnapShotNodes}
+            activeNodeIds={activeNodeIds}
+            setActiveNodeIds={setActiveNodeIds}
+            activeToolId={activeToolId}
+            onClickBackground={handleClickBackground}
+          />
+        </div>
+        <CanvasToolbar
           activeToolId={activeToolId}
-          onClickBackground={handleClickBackground}
+          setActiveToolId={setActiveToolId}
+        />
+        <Leva
+          hidden={activeNodeIds.length === 0}
+          titleBar={{ position: { x: 0, y: 60 } }}
         />
       </div>
-      <CanvasToolbar activeToolId={activeToolId} setActiveToolId={setActiveToolId} />
-      <Leva hidden={activeNodeIds.length === 0} titleBar={{ position: { x: 0, y: 60 } }} />
-    </div>
+    </>
   );
 }
