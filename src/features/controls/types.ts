@@ -26,6 +26,11 @@ export interface BaseSelectionControlsProps {
   updateSelectedNodes: UpdateSelectedNodes;
 }
 
+export interface CanvasSize {
+  width: number;
+  height: number;
+}
+
 export interface TypeSelectionControlsProps<TNode extends CanvasNode> {
   nodes: TNode[];
   updateSelectedNodes: UpdateSelectedNodes;

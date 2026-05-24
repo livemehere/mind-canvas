@@ -1,4 +1,4 @@
-import { MousePointer2, Square, Type } from "lucide-react";
+import { Eye, EyeOff, MousePointer2, Square, Type } from "lucide-react";
 import { cn } from "../../utils/cn";
 
 export type CanvasToolId = "select" | "rect" | "text";
@@ -26,9 +26,16 @@ const TOOL_ACTIONS: ToolAction[] = [
 interface Props {
   activeToolId: CanvasToolId | null;
   setActiveToolId: React.Dispatch<React.SetStateAction<CanvasToolId>>;
+  showPreviousOverlay: boolean;
+  setShowPreviousOverlay: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function CanvasToolbar({ activeToolId, setActiveToolId }: Props) {
+export function CanvasToolbar({
+  activeToolId,
+  setActiveToolId,
+  showPreviousOverlay,
+  setShowPreviousOverlay,
+}: Props) {
   return (
     <div className="absolute left-1/2 -translate-1/2 bottom-4">
       <div className="flex items-center gap-1.5 bg-neutral-950/80 p-2 rounded">
@@ -40,10 +47,20 @@ export function CanvasToolbar({ activeToolId, setActiveToolId }: Props) {
               "bg-neutral-800 p-2 rounded hover:opacity-80 transition active:scale-90",
               activeToolId === action.id && "bg-purple-600",
             )}
-          >
+            >
             {action.icon}
           </button>
         ))}
+        <button
+          onClick={() => setShowPreviousOverlay((prev) => !prev)}
+          className={cn(
+            "bg-neutral-800 p-2 rounded hover:opacity-80 transition active:scale-90",
+            showPreviousOverlay && "bg-purple-600",
+          )}
+          title="Toggle previous overlay (Shift+O)"
+        >
+          {showPreviousOverlay ? <Eye size={18} /> : <EyeOff size={18} />}
+        </button>
       </div>
     </div>
   );

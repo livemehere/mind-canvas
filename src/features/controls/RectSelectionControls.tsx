@@ -1,5 +1,5 @@
 import { useControls } from "leva";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   RECT_CONTENT_COLOR_OPTIONS,
   type RectNode,
@@ -12,6 +12,7 @@ import {
   startNumericEditSession,
   useLevaSync,
 } from "./shared";
+import { consumeControlFocus, focusLevaControlByLabel } from "./focus";
 import {
   type LevaOnChangeContext,
   type NumericEditSession,
@@ -217,6 +218,14 @@ export function RectSelectionControls({
     },
     isEditingRef,
   );
+
+  useEffect(() => {
+    if (!consumeControlFocus("rect.content")) {
+      return;
+    }
+
+    focusLevaControlByLabel("content");
+  }, [nodes]);
 
   return null;
 }

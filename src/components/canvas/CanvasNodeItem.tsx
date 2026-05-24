@@ -1,8 +1,9 @@
 import { motion, useDragControls } from "motion/react";
 import { useRef } from "react";
-import { type CanvasNode, type RectNode } from "../../core/nodes";
+import { type CanvasNode, type RectNode, type TextNode } from "../../core/nodes";
 import {
   CanvasNodeTransformHandles,
+  type ResizeHandleModifiers,
   type ResizeHandleDirection,
 } from "./CanvasNodeTransformHandles";
 import {
@@ -12,29 +13,41 @@ import {
   getTextStyle,
 } from "./CanvasNodeItem.styles";
 import {
+  createTextSnapshot,
   createRectSnapshot,
   isTransformHandleTarget,
   type RectTransformSnapshot,
   resizeRectNode,
+  resizeTextNodeFont,
   ROTATE_SENSITIVITY,
   type RotateSnapshot,
   roundNumber,
+  type TextTransformSnapshot,
 } from "./CanvasNodeItem.transforms";
 
 interface Props {
   node: CanvasNode;
   isSelected: boolean;
   canDrag: boolean;
+  autoCenterText?: boolean;
+  textLayoutResetToken?: number;
   previewOffset?: { x: number; y: number };
   setNodeRef: (nodeId: string, element: HTMLDivElement | null) => void;
   onRectNodeChange: (
     nodeId: string,
     updater: (node: RectNode) => RectNode,
+    options?: { commitHistory?: boolean },
+  ) => void;
+  onTextNodeChange: (
+    nodeId: string,
+    updater: (node: TextNode) => TextNode,
+    options?: { commitHistory?: boolean },
   ) => void;
   onPointerDown: (
     event: React.PointerEvent<HTMLDivElement>,
     node: CanvasNode,
   ) => void;
+  onDoubleClick?: (node: CanvasNode) => void;
   onDragStart: (node: CanvasNode) => void;
   onDrag: (node: CanvasNode, offset: { x: number; y: number }) => void;
   onDragEnd: (node: CanvasNode, offset: { x: number; y: number }) => void;
@@ -47,7 +60,9 @@ export function CanvasNodeItem({
   previewOffset,
   setNodeRef,
   onRectNodeChange,
+  onTextNodeChange,
   onPointerDown,
+  onDoubleClick,
   onDragStart,
   onDrag,
   onDragEnd,
@@ -55,10 +70,14 @@ export function CanvasNodeItem({
   const itemRef = useRef<HTMLDivElement | null>(null);
   const resizeSnapshotRef = useRef<RectTransformSnapshot | null>(null);
   const rotateSnapshotRef = useRef<RotateSnapshot | null>(null);
+  const textSnapshotRef = useRef<TextTransformSnapshot | null>(null);
   const dragControls = useDragControls();
 
   const handleResizeStart = () => {
     if (node.type !== "rect") {
+      if (node.type === "text") {
+        textSnapshotRef.current = createTextSnapshot(node);
+      }
       return;
     }
 
@@ -68,7 +87,18 @@ export function CanvasNodeItem({
   const handleResize = (
     direction: ResizeHandleDirection,
     offset: { x: number; y: number },
+    modifiers: ResizeHandleModifiers,
   ) => {
+    if (node.type === "text") {
+      const snapshot = textSnapshotRef.current ?? createTextSnapshot(node);
+
+      onTextNodeChange(node.id, (currentNode) =>
+        resizeTextNodeFont(currentNode, snapshot, direction, offset),
+        { commitHistory: false },
+      );
+      return;
+    }
+
     if (node.type !== "rect") {
       return;
     }
@@ -76,20 +106,41 @@ export function CanvasNodeItem({
     const snapshot = resizeSnapshotRef.current ?? createRectSnapshot(node);
 
     onRectNodeChange(node.id, (currentNode) =>
-      resizeRectNode(currentNode, snapshot, direction, offset),
+      resizeRectNode(currentNode, snapshot, direction, offset, modifiers),
+      { commitHistory: false },
     );
   };
 
   const handleResizeEnd = (
     direction: ResizeHandleDirection,
     offset: { x: number; y: number },
+    modifiers: ResizeHandleModifiers,
   ) => {
-    handleResize(direction, offset);
+    if (node.type === "text") {
+      const snapshot = textSnapshotRef.current ?? createTextSnapshot(node);
+
+      onTextNodeChange(node.id, (currentNode) =>
+        resizeTextNodeFont(currentNode, snapshot, direction, offset),
+      );
+      resizeSnapshotRef.current = null;
+      textSnapshotRef.current = null;
+      return;
+    }
+
+    if (node.type === "rect") {
+      const snapshot = resizeSnapshotRef.current ?? createRectSnapshot(node);
+
+      onRectNodeChange(node.id, (currentNode) =>
+        resizeRectNode(currentNode, snapshot, direction, offset, modifiers),
+      );
+    }
+
     resizeSnapshotRef.current = null;
+    textSnapshotRef.current = null;
   };
 
   const handleRotateStart = () => {
-    if (node.type !== "rect") {
+    if (node.type !== "rect" && node.type !== "text") {
       return;
     }
 
@@ -99,7 +150,7 @@ export function CanvasNodeItem({
   };
 
   const handleRotate = (offset: { x: number; y: number }) => {
-    if (node.type !== "rect") {
+    if (node.type !== "rect" && node.type !== "text") {
       return;
     }
 
@@ -111,14 +162,44 @@ export function CanvasNodeItem({
       snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
     );
 
-    onRectNodeChange(node.id, (currentNode) => ({
+    if (node.type === "rect") {
+      onRectNodeChange(node.id, (currentNode) => ({
+        ...currentNode,
+        rotate: nextRotate,
+      }), { commitHistory: false });
+      return;
+    }
+
+    onTextNodeChange(node.id, (currentNode) => ({
       ...currentNode,
       rotate: nextRotate,
-    }));
+    }), { commitHistory: false });
   };
 
   const handleRotateEnd = (offset: { x: number; y: number }) => {
-    handleRotate(offset);
+    if (node.type !== "rect" && node.type !== "text") {
+      return;
+    }
+
+    const snapshot = rotateSnapshotRef.current ?? {
+      rotate: node.rotate,
+    };
+    const nextRotate = roundNumber(
+      snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
+    );
+
+    if (node.type === "rect") {
+      onRectNodeChange(node.id, (currentNode) => ({
+        ...currentNode,
+        rotate: nextRotate,
+      }));
+    } else {
+      onTextNodeChange(node.id, (currentNode) => ({
+        ...currentNode,
+        rotate: nextRotate,
+      }));
+    }
+
     rotateSnapshotRef.current = null;
   };
 
@@ -154,6 +235,7 @@ export function CanvasNodeItem({
         position: "absolute",
         left: 0,
         top: 0,
+        translate: node.type === "text" ? "-50% -50%" : undefined,
         zIndex: node.zIndex,
         userSelect: "none",
         overflow: "visible",
@@ -170,11 +252,12 @@ export function CanvasNodeItem({
       }}
       transition={getNodeTransition(node, isSelected)}
       onPointerDown={handlePointerDown}
+      onDoubleClick={() => onDoubleClick?.(node)}
       onDragStart={() => onDragStart(node)}
       onDrag={(_, info) => onDrag(node, info.offset)}
       onDragEnd={(_, info) => onDragEnd(node, info.offset)}
     >
-      {node.type === "rect" && isSelected && canDrag ? (
+      {(node.type === "rect" || node.type === "text") && isSelected && canDrag ? (
         <CanvasNodeTransformHandles
           onResizeStart={handleResizeStart}
           onResize={handleResize}
@@ -182,6 +265,7 @@ export function CanvasNodeItem({
           onRotateStart={handleRotateStart}
           onRotate={handleRotate}
           onRotateEnd={handleRotateEnd}
+          resizeDirections={node.type === "text" ? ["w", "e"] : undefined}
         />
       ) : null}
       {node.type === "rect" && node.content ? (

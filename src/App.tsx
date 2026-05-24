@@ -1,64 +1,184 @@
-import { CanvasSurface } from "./components/canvas/CanvasSurface";
-import { useState } from "react";
-import {
-  type CanvasNode,
-  type Position,
-  DEFAULT_RECT_NODE,
-  type Snapshot,
-  DEFAULT_TEXT_NODE,
-} from "./core/nodes";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { Leva } from "leva";
+import { toast, Toaster } from "sonner";
+import { useHotkeys } from "react-hotkeys-hook";
+import { CanvasSurface } from "./components/canvas/CanvasSurface";
 import {
   CanvasToolbar,
   type CanvasToolId,
 } from "./components/canvas/CanvasToolbar";
-import { Leva } from "leva";
-import { toast, Toaster } from "sonner";
+import {
+  type CanvasNode,
+  DEFAULT_RECT_NODE,
+  DEFAULT_TEXT_NODE,
+  type Position,
+  type Snapshot,
+} from "./core/nodes";
+import { requestControlFocus } from "./features/controls/focus";
+import {
+  createImageRectNode,
+  getImageFileFromClipboardEvent,
+  readNodesFromClipboard,
+  readNodesFromClipboardEvent,
+  writeNodesToClipboard,
+} from "./utils/clipboard";
+
+interface StepHistory {
+  snapshots: Snapshot[];
+  index: number;
+}
+
+const cloneNodes = (nodes: CanvasNode[]) => structuredClone(nodes);
+
+const createSnapshot = (nodes: CanvasNode[]): Snapshot => ({
+  nodes: cloneNodes(nodes),
+});
+
+const createStepHistory = (nodes: CanvasNode[]): StepHistory => ({
+  snapshots: [createSnapshot(nodes)],
+  index: 0,
+});
+
+const nodesEqual = (a: CanvasNode[], b: CanvasNode[]) =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+const offsetNodes = (nodes: CanvasNode[], offset: Position) =>
+  nodes.map((node) => ({
+    ...node,
+    position: {
+      x: node.position.x + offset.x,
+      y: node.position.y + offset.y,
+    },
+  }));
+
+const regenerateNodeIds = (nodes: CanvasNode[]) =>
+  nodes.map((node) => ({
+    ...node,
+    id: window.crypto.randomUUID(),
+  }));
+
+const getStepOverlayNodes = (snapshots: Snapshot[], step: number) =>
+  step > 0 ? snapshots[step - 1].nodes : [];
 
 export default function App() {
-  // step, snapshot
   const [step, setStep] = useState(0);
-  const [snapShot, setSnapShot] = useState<Snapshot[]>([
-    {
-      nodes: [],
-    },
+  const [snapShot, setSnapShot] = useState<Snapshot[]>([{ nodes: [] }]);
+  const [histories, setHistories] = useState<StepHistory[]>([
+    createStepHistory([]),
   ]);
+  const [showPreviousOverlay, setShowPreviousOverlay] = useState(true);
+  const [activeNodeIds, setActiveNodeIds] = useState<string[]>([]);
+  const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
+  const latestStateRef = useRef({
+    step: 0,
+    snapShot: [{ nodes: [] }] as Snapshot[],
+  });
+
   const snapShotLength = snapShot.length;
   const currentSnapShot = snapShot[step];
-  const previousNodes = step > 0 ? snapShot[step - 1].nodes : [];
-
-  // nodes, setNodes, removeNode
   const currentNodes = currentSnapShot.nodes;
-  const setCurrentSnapShotNodes = (nodes: CanvasNode[]) => {
+  const previousNodes = getStepOverlayNodes(snapShot, step);
+  const currentHistory = histories[step] ?? createStepHistory(currentNodes);
+
+  useEffect(() => {
+    latestStateRef.current = { step, snapShot };
+  }, [step, snapShot]);
+
+  const commitNodesToStep = (
+    targetStep: number,
+    nodes: CanvasNode[],
+    options?: { skipHistory?: boolean; commitHistory?: boolean },
+  ) => {
     setSnapShot((prev) => {
-      const newSnapShot = [...prev];
-      newSnapShot[step] = { nodes };
-      return newSnapShot;
+      const next = [...prev];
+      next[targetStep] = createSnapshot(nodes);
+      return next;
+    });
+
+    if (options?.skipHistory || options?.commitHistory === false) {
+      return;
+    }
+
+    setHistories((prev) => {
+      const next = [...prev];
+      const stepHistory = next[targetStep] ?? createStepHistory([]);
+      const baseSnapshots = stepHistory.snapshots.slice(
+        0,
+        stepHistory.index + 1,
+      );
+      const lastNodes = baseSnapshots.at(-1)?.nodes ?? [];
+
+      if (nodesEqual(lastNodes, nodes)) {
+        next[targetStep] = stepHistory;
+        return next;
+      }
+
+      next[targetStep] = {
+        snapshots: [...baseSnapshots, createSnapshot(nodes)],
+        index: baseSnapshots.length,
+      };
+
+      return next;
     });
   };
+
+  const setCurrentSnapShotNodes = (
+    nodes: CanvasNode[],
+    options?: { commitHistory?: boolean },
+  ) => {
+    commitNodesToStep(step, nodes, options);
+  };
+
   const removeNodes = (nodeIds: string[]) => {
     setCurrentSnapShotNodes(
-      currentNodes.filter((n) => !nodeIds.includes(n.id)),
+      currentNodes.filter((node) => !nodeIds.includes(node.id)),
     );
   };
 
   const addSnapShot = (duplicateLatest?: boolean) => {
-    const newSnapShot: Snapshot = {
-      nodes: [],
-    };
+    const nextNodes = duplicateLatest ? cloneNodes(currentNodes) : [];
 
-    if (duplicateLatest) {
-      newSnapShot.nodes = [...currentNodes];
-    }
-
-    setSnapShot((prev) => [...prev, newSnapShot]);
+    setSnapShot((prev) => [...prev, createSnapshot(nextNodes)]);
+    setHistories((prev) => [...prev, createStepHistory(nextNodes)]);
     toast.success("Snapshot added");
   };
 
-  // states
-  const [activeNodeIds, setActiveNodeIds] = useState<string[]>([]);
-  const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
+  const undo = () => {
+    if (currentHistory.index === 0) {
+      toast.warning("Nothing to undo");
+      return;
+    }
+
+    const nextIndex = currentHistory.index - 1;
+    const snapshot = currentHistory.snapshots[nextIndex];
+
+    setHistories((prev) => {
+      const next = [...prev];
+      next[step] = { ...currentHistory, index: nextIndex };
+      return next;
+    });
+    commitNodesToStep(step, snapshot.nodes, { skipHistory: true });
+    setActiveNodeIds([]);
+  };
+
+  const redo = () => {
+    if (currentHistory.index >= currentHistory.snapshots.length - 1) {
+      toast.warning("Nothing to redo");
+      return;
+    }
+
+    const nextIndex = currentHistory.index + 1;
+    const snapshot = currentHistory.snapshots[nextIndex];
+
+    setHistories((prev) => {
+      const next = [...prev];
+      next[step] = { ...currentHistory, index: nextIndex };
+      return next;
+    });
+    commitNodesToStep(step, snapshot.nodes, { skipHistory: true });
+    setActiveNodeIds([]);
+  };
 
   const createRect = (x: number, y: number) => {
     const id = window.crypto.randomUUID();
@@ -88,10 +208,9 @@ export default function App() {
 
   const handleClickBackground = (position: Position) => {
     switch (activeToolId) {
-      case "select": {
+      case "select":
         setActiveNodeIds([]);
         break;
-      }
       case "rect": {
         const id = createRect(position.x, position.y);
         setActiveNodeIds([id]);
@@ -104,25 +223,128 @@ export default function App() {
         setActiveToolId("select");
         break;
       }
-      default:
-        break;
     }
+  };
+
+  const handleNodeDoubleClick = (node: CanvasNode) => {
+    if (node.type === "rect") {
+      setActiveNodeIds([node.id]);
+      requestControlFocus("rect.content");
+      return;
+    }
+
+    if (node.type === "text") {
+      setActiveNodeIds([node.id]);
+      requestControlFocus("text.text");
+      return;
+    }
+  };
+
+  const selectedNodes = useMemo(
+    () => currentNodes.filter((node) => activeNodeIds.includes(node.id)),
+    [activeNodeIds, currentNodes],
+  );
+
+  const copySelectedNodes = async () => {
+    if (selectedNodes.length === 0) {
+      return false;
+    }
+
+    await writeNodesToClipboard(selectedNodes);
+    toast.success("Copied nodes");
+    return true;
+  };
+
+  const cutSelectedNodes = async () => {
+    if (selectedNodes.length === 0) {
+      return;
+    }
+
+    const copied = await copySelectedNodes();
+    if (!copied) {
+      return;
+    }
+
+    removeNodes(selectedNodes.map((node) => node.id));
+    setActiveNodeIds([]);
+    toast.success("Cut nodes");
+  };
+
+  const pasteClipboardNodes = async () => {
+    const clipboardNodes = await readNodesFromClipboard();
+
+    if (!clipboardNodes || clipboardNodes.length === 0) {
+      return false;
+    }
+
+    const pastedNodes = offsetNodes(regenerateNodeIds(clipboardNodes), {
+      x: 24,
+      y: 24,
+    });
+    setCurrentSnapShotNodes([...currentNodes, ...pastedNodes]);
+    setActiveNodeIds(pastedNodes.map((node) => node.id));
+    toast.success("Pasted nodes");
+    return true;
+  };
+
+  const duplicateSelectedNodesToNextSnapshot = () => {
+    if (selectedNodes.length === 0) {
+      return;
+    }
+
+    const targetStep = step + 1;
+
+    if (targetStep >= snapShot.length) {
+      toast.warning("Next snapshot does not exist");
+      return;
+    }
+
+    const targetNodes = snapShot[targetStep].nodes;
+    const hasDuplicateId = selectedNodes.some((node) =>
+      targetNodes.some((targetNode) => targetNode.id === node.id),
+    );
+
+    if (hasDuplicateId) {
+      toast.warning("Next snapshot already has one of those ids");
+      return;
+    }
+
+    commitNodesToStep(targetStep, [
+      ...targetNodes,
+      ...cloneNodes(selectedNodes),
+    ]);
+    toast.success("Copied to next snapshot");
   };
 
   useHotkeys("q", () => setActiveToolId("select"));
   useHotkeys("w", () => setActiveToolId("rect"));
   useHotkeys("e", () => setActiveToolId("text"));
+  useHotkeys("meta+z,ctrl+z", () => undo(), { preventDefault: true });
+  useHotkeys("meta+shift+z,ctrl+shift+z", () => redo(), {
+    preventDefault: true,
+  });
+  useHotkeys("meta+c,ctrl+c", () => void copySelectedNodes(), {
+    preventDefault: true,
+  });
+  useHotkeys("meta+x,ctrl+x", () => void cutSelectedNodes(), {
+    preventDefault: true,
+  });
+  useHotkeys("meta+d,ctrl+d", () => duplicateSelectedNodesToNextSnapshot(), {
+    preventDefault: true,
+  });
+  useHotkeys("shift+o", () => setShowPreviousOverlay((prev) => !prev));
   useHotkeys("Escape", () => {
     setActiveNodeIds([]);
     setActiveToolId("select");
   });
   useHotkeys("Backspace", () => {
-    if (activeNodeIds.length > 0) {
-      removeNodes(activeNodeIds);
-      setActiveNodeIds([]);
+    if (activeNodeIds.length === 0) {
+      return;
     }
-  });
 
+    removeNodes(activeNodeIds);
+    setActiveNodeIds([]);
+  });
   useHotkeys("1", () => {
     setStep((prev) => Math.max(0, prev - 1));
     setActiveNodeIds([]);
@@ -130,16 +352,15 @@ export default function App() {
       toast.warning("Already at the first step");
     }
   });
-
   useHotkeys("2", () => {
     if (step === snapShotLength - 1) {
       toast.warning("Already at the last step");
       return;
     }
+
     setStep((prev) => prev + 1);
     setActiveNodeIds([]);
   });
-
   useHotkeys("3", () => {
     flushSync(() => {
       addSnapShot(true);
@@ -148,17 +369,74 @@ export default function App() {
     });
   });
 
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      const imageFile = getImageFileFromClipboardEvent(event);
+
+      if (imageFile) {
+        event.preventDefault();
+        const rectNode = await createImageRectNode(
+          imageFile,
+          () => window.crypto.randomUUID(),
+          { x: 120, y: 120 },
+        );
+        const { step: activeStep, snapShot: snapshots } =
+          latestStateRef.current;
+        const nodes = snapshots[activeStep].nodes;
+        commitNodesToStep(activeStep, [...nodes, rectNode]);
+        setActiveNodeIds([rectNode.id]);
+        toast.success("Image pasted as rect");
+        return;
+      }
+
+      const eventClipboardNodes = readNodesFromClipboardEvent(event);
+      if (eventClipboardNodes && eventClipboardNodes.length > 0) {
+        event.preventDefault();
+        const pastedNodes = offsetNodes(
+          regenerateNodeIds(eventClipboardNodes),
+          {
+            x: 24,
+            y: 24,
+          },
+        );
+        const { step: activeStep, snapShot: snapshots } =
+          latestStateRef.current;
+        const nodes = snapshots[activeStep].nodes;
+        commitNodesToStep(activeStep, [...nodes, ...pastedNodes]);
+        setActiveNodeIds(pastedNodes.map((node) => node.id));
+        toast.success("Pasted nodes");
+        return;
+      }
+
+      const pasted = await pasteClipboardNodes();
+
+      if (pasted) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [currentNodes, step]);
+
   return (
     <>
-      <Toaster position={"top-center"} richColors />
+      <Toaster position="top-center" richColors />
       <div className="h-full relative">
-        <div className={"absolute top-5 right-5 z-10 text-2xl font-bold"}>
+        <div className="absolute top-5 right-5 z-10 text-2xl font-bold">
           Step : {step} / {snapShotLength - 1}
         </div>
         <div className="absolute inset-0">
-          {step > 0 ? <CanvasSurface nodes={previousNodes} viewOnly /> : null}
+          {step > 0 && showPreviousOverlay ? (
+            <CanvasSurface
+              nodes={previousNodes}
+              viewOnly
+              showControls={false}
+              activeNodeIds={[]}
+            />
+          ) : null}
         </div>
-        <div className="relative h-full">
+        <div className="relative h-full overflow-hidden">
           <CanvasSurface
             nodes={currentNodes}
             setNodes={setCurrentSnapShotNodes}
@@ -166,11 +444,14 @@ export default function App() {
             setActiveNodeIds={setActiveNodeIds}
             activeToolId={activeToolId}
             onClickBackground={handleClickBackground}
+            onNodeDoubleClick={handleNodeDoubleClick}
           />
         </div>
         <CanvasToolbar
           activeToolId={activeToolId}
           setActiveToolId={setActiveToolId}
+          showPreviousOverlay={showPreviousOverlay}
+          setShowPreviousOverlay={setShowPreviousOverlay}
         />
         <Leva
           hidden={activeNodeIds.length === 0}

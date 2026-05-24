@@ -1,4 +1,5 @@
 import { motion, type PanInfo } from "motion/react";
+import { useRef } from "react";
 
 export type ResizeHandleDirection =
   | "n"
@@ -10,19 +11,29 @@ export type ResizeHandleDirection =
   | "se"
   | "sw";
 
+export interface ResizeHandleModifiers {
+  altKey: boolean;
+}
+
 interface Props {
-  onResizeStart: (direction: ResizeHandleDirection) => void;
+  onResizeStart: (
+    direction: ResizeHandleDirection,
+    modifiers: ResizeHandleModifiers,
+  ) => void;
   onResize: (
     direction: ResizeHandleDirection,
     offset: { x: number; y: number },
+    modifiers: ResizeHandleModifiers,
   ) => void;
   onResizeEnd: (
     direction: ResizeHandleDirection,
     offset: { x: number; y: number },
+    modifiers: ResizeHandleModifiers,
   ) => void;
   onRotateStart: () => void;
   onRotate: (offset: { x: number; y: number }) => void;
   onRotateEnd: (offset: { x: number; y: number }) => void;
+  resizeDirections?: ResizeHandleDirection[];
 }
 
 const HANDLE_SIZE = 12;
@@ -102,6 +113,12 @@ const stopPointerPropagation = (event: React.PointerEvent<HTMLElement>) => {
   event.stopPropagation();
 };
 
+const getResizeHandleModifiers = (
+  event: PointerEvent | React.PointerEvent<HTMLElement>,
+): ResizeHandleModifiers => ({
+  altKey: event.altKey,
+});
+
 function ResizeHandle({
   direction,
   onResizeStart,
@@ -109,25 +126,36 @@ function ResizeHandle({
   onResizeEnd,
 }: {
   direction: ResizeHandleDirection;
-  onResizeStart: (direction: ResizeHandleDirection) => void;
+  onResizeStart: (
+    direction: ResizeHandleDirection,
+    modifiers: ResizeHandleModifiers,
+  ) => void;
   onResize: (
     direction: ResizeHandleDirection,
     offset: { x: number; y: number },
+    modifiers: ResizeHandleModifiers,
   ) => void;
   onResizeEnd: (
     direction: ResizeHandleDirection,
     offset: { x: number; y: number },
+    modifiers: ResizeHandleModifiers,
   ) => void;
 }) {
   const config = HANDLE_STYLES[direction];
+  const modifiersRef = useRef<ResizeHandleModifiers>({ altKey: false });
 
   return (
     <motion.button
       type="button"
       onPointerDown={stopPointerPropagation}
-      onPanStart={() => onResizeStart(direction)}
-      onPan={(_, info: PanInfo) => onResize(direction, info.offset)}
-      onPanEnd={(_, info: PanInfo) => onResizeEnd(direction, info.offset)}
+      onPanStart={(event) => {
+        modifiersRef.current = getResizeHandleModifiers(event);
+        onResizeStart(direction, modifiersRef.current);
+      }}
+      onPan={(_, info: PanInfo) => onResize(direction, info.offset, modifiersRef.current)}
+      onPanEnd={(_, info: PanInfo) =>
+        onResizeEnd(direction, info.offset, modifiersRef.current)
+      }
       style={{
         position: "absolute",
         width: HANDLE_SIZE,
@@ -154,6 +182,7 @@ export function CanvasNodeTransformHandles({
   onRotateStart,
   onRotate,
   onRotateEnd,
+  resizeDirections = Object.keys(HANDLE_STYLES) as ResizeHandleDirection[],
 }: Props) {
   return (
     <>
@@ -193,8 +222,7 @@ export function CanvasNodeTransformHandles({
         }}
         data-transform-handle="true"
       />
-      {(Object.keys(HANDLE_STYLES) as ResizeHandleDirection[]).map(
-        (direction) => (
+      {resizeDirections.map((direction) => (
           <ResizeHandle
             key={direction}
             direction={direction}
@@ -202,8 +230,7 @@ export function CanvasNodeTransformHandles({
             onResize={onResize}
             onResizeEnd={onResizeEnd}
           />
-        ),
-      )}
+        ))}
     </>
   );
 }

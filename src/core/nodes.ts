@@ -55,6 +55,7 @@ export interface RectNode extends BaseNode {
     width: number;
     height: number;
   };
+  backgroundImage?: string;
   content: string;
   contentTypography: RectContentTypography;
 }
@@ -73,6 +74,7 @@ export const DEFAULT_RECT_NODE: RectNode = {
   type: "rect",
   position: { x: 0, y: 0 },
   size: { width: 100, height: 100 },
+  backgroundImage: undefined,
   bgColor: "#ffffff",
   radius: 0,
   borderWidth: 0,

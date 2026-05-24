@@ -1,5 +1,5 @@
 import { useControls } from "leva";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   TEXT_ALIGN_OPTIONS,
   type TextAlign,
@@ -13,6 +13,7 @@ import {
   startNumericEditSession,
   useLevaSync,
 } from "./shared";
+import { consumeControlFocus, focusLevaControlByLabel } from "./focus";
 import {
   type LevaOnChangeContext,
   type NumericEditSession,
@@ -432,6 +433,14 @@ export function TextSelectionControls({
     },
     isEditingRef,
   );
+
+  useEffect(() => {
+    if (!consumeControlFocus("text.text")) {
+      return;
+    }
+
+    focusLevaControlByLabel("text");
+  }, [nodes]);
 
   return null;
 }

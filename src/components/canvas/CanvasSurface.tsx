@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type CanvasNode, type Position, type RectNode } from "../../core/nodes";
+import {
+  type CanvasNode,
+  type Position,
+  type RectNode,
+  type TextNode,
+} from "../../core/nodes";
 import { CanvasNodeItem } from "./CanvasNodeItem";
 import {
   DRAG_THRESHOLD,
@@ -12,16 +17,23 @@ import {
 import { SelectionOverlay } from "../../features/selection/SelectionOverlay";
 import { type CanvasToolId } from "./CanvasToolbar";
 import { SelectedNodeControls } from "../../features/controls";
+import { type CanvasSize } from "../../features/controls/types";
 import { NOOP } from "../../utils/noop";
 
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
-  setNodes?: (newNodes: CanvasNode[]) => void;
+  setNodes?: (
+    newNodes: CanvasNode[],
+    options?: { commitHistory?: boolean },
+  ) => void;
   activeNodeIds?: string[];
   setActiveNodeIds?: (ids: string[]) => void;
   activeToolId?: CanvasToolId;
   onClickBackground?: (position: Position) => void;
   viewOnly?: boolean;
+  showControls?: boolean;
+  onNodeDoubleClick?: (node: CanvasNode) => void;
+  canvasSize?: CanvasSize;
 }
 
 export function CanvasSurface({
@@ -32,11 +44,17 @@ export function CanvasSurface({
   activeToolId = "select",
   onClickBackground = NOOP,
   viewOnly = false,
+  showControls = !viewOnly,
+  onNodeDoubleClick = NOOP,
+  canvasSize = { width: 800, height: 600 },
 }: CanvasSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<Position | null>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const nodesRef = useRef(nodes);
+  const [measuredCanvasSize, setMeasuredCanvasSize] = useState<CanvasSize>(
+    canvasSize,
+  );
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null,
   );
@@ -55,10 +73,39 @@ export function CanvasSurface({
     nodesRef.current = nodes;
   }, [nodes]);
 
-  const commitNodes = (updater: (currentNodes: CanvasNode[]) => CanvasNode[]) => {
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateCanvasSize = () => {
+      setMeasuredCanvasSize({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    };
+
+    updateCanvasSize();
+
+    const observer = new ResizeObserver(() => {
+      updateCanvasSize();
+    });
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const commitNodes = (
+    updater: (currentNodes: CanvasNode[]) => CanvasNode[],
+    options?: { commitHistory?: boolean },
+  ) => {
     const nextNodes = updater(nodesRef.current);
     nodesRef.current = nextNodes;
-    setNodes(nextNodes);
+    setNodes(nextNodes, options);
   };
 
   const updateSelectedNodes = (updater: (node: CanvasNode) => CanvasNode) => {
@@ -74,15 +121,36 @@ export function CanvasSurface({
   const updateRectNode = (
     nodeId: string,
     updater: (node: RectNode) => RectNode,
+    options?: { commitHistory?: boolean },
   ) => {
-    commitNodes((currentNodes) =>
-      currentNodes.map((currentNode) => {
-        if (currentNode.id !== nodeId || currentNode.type !== "rect") {
-          return currentNode;
-        }
+    commitNodes(
+      (currentNodes) =>
+        currentNodes.map((currentNode) => {
+          if (currentNode.id !== nodeId || currentNode.type !== "rect") {
+            return currentNode;
+          }
 
-        return updater(currentNode);
-      }),
+          return updater(currentNode);
+        }),
+      options,
+    );
+  };
+
+  const updateTextNode = (
+    nodeId: string,
+    updater: (node: TextNode) => TextNode,
+    options?: { commitHistory?: boolean },
+  ) => {
+    commitNodes(
+      (currentNodes) =>
+        currentNodes.map((currentNode) => {
+          if (currentNode.id !== nodeId || currentNode.type !== "text") {
+            return currentNode;
+          }
+
+          return updater(currentNode);
+        }),
+      options,
     );
   };
 
@@ -299,12 +367,13 @@ export function CanvasSurface({
       onPointerMove={viewOnly ? undefined : handleBackgroundPointerMove}
       onPointerUp={viewOnly ? undefined : handleBackgroundPointerUp}
     >
-      {viewOnly ? null : (
+      {showControls ? (
         <SelectedNodeControls
           nodes={selectedNodes}
           updateSelectedNodes={updateSelectedNodes}
+          canvasSize={measuredCanvasSize}
         />
-      )}
+      ) : null}
       {nodes.map((node) => (
         <CanvasNodeItem
           key={node.id}
@@ -320,7 +389,9 @@ export function CanvasSurface({
           }
           setNodeRef={setNodeRef}
           onRectNodeChange={updateRectNode}
+          onTextNodeChange={updateTextNode}
           onPointerDown={handleNodePointerDown}
+          onDoubleClick={onNodeDoubleClick}
           onDragStart={handleNodeDragStart}
           onDrag={handleNodeDrag}
           onDragEnd={handleNodeDragEnd}

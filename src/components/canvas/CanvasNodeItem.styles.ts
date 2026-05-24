@@ -56,11 +56,19 @@ export const getNodeStyle = (node: CanvasNode) => {
         width: node.size.width,
         height: node.size.height,
         backgroundColor: node.bgColor,
+        backgroundImage: node.backgroundImage
+          ? `url(${JSON.stringify(node.backgroundImage)})`
+          : undefined,
+        backgroundPosition: node.backgroundImage ? "center" : undefined,
+        backgroundRepeat: node.backgroundImage ? "no-repeat" : undefined,
+        backgroundSize: node.backgroundImage ? "cover" : undefined,
         borderRadius: node.radius,
         border: `${node.borderWidth}px solid ${node.borderColor}`,
       };
     case "text":
       return {
+        x: node.position.x,
+        y: node.position.y,
         backgroundColor: node.bgColor,
         borderRadius: node.radius,
         border: `${node.borderWidth}px solid ${node.borderColor}`,

@@ -1,15 +1,23 @@
-import { type Position, type RectNode } from "../../core/nodes";
-import { type ResizeHandleDirection } from "./CanvasNodeTransformHandles";
+import { type Position, type RectNode, type TextNode } from "../../core/nodes";
+import {
+  type ResizeHandleDirection,
+  type ResizeHandleModifiers,
+} from "./CanvasNodeTransformHandles";
 
 export interface RectTransformSnapshot {
   position: Position;
   size: RectNode["size"];
   rotate: number;
   scale: number;
+  center: Position;
 }
 
 export interface RotateSnapshot {
   rotate: number;
+}
+
+export interface TextTransformSnapshot {
+  fontSize: number;
 }
 
 export const ROTATE_SENSITIVITY = 0.6;
@@ -123,6 +131,10 @@ export const createRectSnapshot = (node: RectNode): RectTransformSnapshot => ({
   size: { ...node.size },
   rotate: node.rotate,
   scale: node.scale,
+  center: {
+    x: node.position.x + node.size.width / 2,
+    y: node.position.y + node.size.height / 2,
+  },
 });
 
 export const resizeRectNode = (
@@ -130,10 +142,43 @@ export const resizeRectNode = (
   snapshot: RectTransformSnapshot,
   direction: ResizeHandleDirection,
   offset: { x: number; y: number },
+  modifiers: ResizeHandleModifiers,
 ) => {
   const localOffset = toLocalOffset(offset, snapshot.rotate, snapshot.scale);
   let nextWidth = snapshot.size.width;
   let nextHeight = snapshot.size.height;
+
+  if (modifiers.altKey) {
+    if (direction.includes("w")) {
+      nextWidth = clampRectSize(snapshot.size.width - localOffset.x * 2);
+    }
+
+    if (direction.includes("e")) {
+      nextWidth = clampRectSize(snapshot.size.width + localOffset.x * 2);
+    }
+
+    if (direction.includes("n")) {
+      nextHeight = clampRectSize(snapshot.size.height - localOffset.y * 2);
+    }
+
+    if (direction.includes("s")) {
+      nextHeight = clampRectSize(snapshot.size.height + localOffset.y * 2);
+    }
+
+    const nextSize = {
+      width: roundNumber(nextWidth),
+      height: roundNumber(nextHeight),
+    };
+
+    return {
+      ...node,
+      position: {
+        x: roundNumber(snapshot.center.x - nextSize.width / 2),
+        y: roundNumber(snapshot.center.y - nextSize.height / 2),
+      },
+      size: nextSize,
+    };
+  }
 
   if (direction.includes("w")) {
     nextWidth = clampRectSize(snapshot.size.width - localOffset.x);
@@ -188,4 +233,29 @@ export const isTransformHandleTarget = (target: EventTarget | null) => {
   }
 
   return target.closest("[data-transform-handle='true']") !== null;
+};
+
+export const createTextSnapshot = (node: TextNode): TextTransformSnapshot => ({
+  fontSize: node.typography.fontSize,
+});
+
+export const resizeTextNodeFont = (
+  node: TextNode,
+  snapshot: TextTransformSnapshot,
+  direction: ResizeHandleDirection,
+  offset: { x: number; y: number },
+) => {
+  const directionFactor = direction === "w" ? -1 : 1;
+  const nextFontSize = Math.max(
+    8,
+    roundNumber(snapshot.fontSize + directionFactor * offset.x * 0.25),
+  );
+
+  return {
+    ...node,
+    typography: {
+      ...node.typography,
+      fontSize: nextFontSize,
+    },
+  };
 };

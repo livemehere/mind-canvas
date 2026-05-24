@@ -3,17 +3,23 @@ import {
   type RectNode,
   type TextNode,
 } from "../../core/nodes";
+import { AlignControls } from "./AlignControls";
 import { BaseSelectionControls } from "./BaseSelectionControls";
 import { RectSelectionControls } from "./RectSelectionControls";
 import { TextSelectionControls } from "./TextSelectionControls";
-import { type UpdateSelectedNodes } from "./types";
+import { type CanvasSize, type UpdateSelectedNodes } from "./types";
 
 interface Props {
   nodes: CanvasNode[];
   updateSelectedNodes: UpdateSelectedNodes;
+  canvasSize: CanvasSize;
 }
 
-export function SelectedNodeControls({ nodes, updateSelectedNodes }: Props) {
+export function SelectedNodeControls({
+  nodes,
+  updateSelectedNodes,
+  canvasSize,
+}: Props) {
   const rectNodes = nodes.filter(
     (node): node is RectNode => node.type === "rect",
   );
@@ -27,6 +33,11 @@ export function SelectedNodeControls({ nodes, updateSelectedNodes }: Props) {
 
   return (
     <>
+      <AlignControls
+        nodes={nodes}
+        updateSelectedNodes={updateSelectedNodes}
+        canvasSize={canvasSize}
+      />
       <BaseSelectionControls
         nodes={nodes}
         updateSelectedNodes={updateSelectedNodes}
