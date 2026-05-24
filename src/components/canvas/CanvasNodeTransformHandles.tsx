@@ -20,6 +20,7 @@ export interface RotateHandleModifiers {
 }
 
 interface Props {
+  onHandlePointerDown?: () => void;
   onResizeStart: (
     direction: ResizeHandleDirection,
     modifiers: ResizeHandleModifiers,
@@ -137,11 +138,13 @@ const getRotateHandleModifiers = (
 
 function ResizeHandle({
   direction,
+  onHandlePointerDown,
   onResizeStart,
   onResize,
   onResizeEnd,
 }: {
   direction: ResizeHandleDirection;
+  onHandlePointerDown?: () => void;
   onResizeStart: (
     direction: ResizeHandleDirection,
     modifiers: ResizeHandleModifiers,
@@ -164,7 +167,10 @@ function ResizeHandle({
   return (
     <motion.button
       type="button"
-      onPointerDown={stopPointerPropagation}
+      onPointerDown={(event) => {
+        onHandlePointerDown?.();
+        stopPointerPropagation(event);
+      }}
       onPanStart={(event) => {
         dragActiveRef.current = true;
         modifiersRef.current = getResizeHandleModifiers(event);
@@ -207,6 +213,7 @@ function ResizeHandle({
 }
 
 export function CanvasNodeTransformHandles({
+  onHandlePointerDown,
   onResizeStart,
   onResize,
   onResizeEnd,
@@ -234,7 +241,10 @@ export function CanvasNodeTransformHandles({
       />
       <motion.button
         type="button"
-        onPointerDown={stopPointerPropagation}
+        onPointerDown={(event) => {
+          onHandlePointerDown?.();
+          stopPointerPropagation(event);
+        }}
         onPanStart={(event) => {
           rotateActiveRef.current = true;
           rotateModifiersRef.current = getRotateHandleModifiers(event);
@@ -279,6 +289,7 @@ export function CanvasNodeTransformHandles({
           <ResizeHandle
             key={direction}
             direction={direction}
+            onHandlePointerDown={onHandlePointerDown}
             onResizeStart={onResizeStart}
             onResize={onResize}
             onResizeEnd={onResizeEnd}

@@ -53,7 +53,7 @@ interface Props {
     node: CanvasNode,
   ) => void;
   onDoubleClick?: (node: CanvasNode) => void;
-  onDragStart: (node: CanvasNode) => void;
+  onDragStart: (node: CanvasNode, modifiers: { altKey: boolean }) => void;
   onDrag: (
     node: CanvasNode,
     offset: { x: number; y: number },
@@ -251,6 +251,10 @@ export function CanvasNodeItem({
       !isTransformHandleTarget(event.target);
   };
 
+  const handleTransformPointerDown = () => {
+    canPanDragRef.current = false;
+  };
+
   return (
     <motion.div
       ref={(element) => {
@@ -279,14 +283,23 @@ export function CanvasNodeItem({
       transition={getNodeTransition(node, isSelected)}
       onPointerDown={handlePointerDown}
       onDoubleClick={() => onDoubleClick?.(node)}
-      onPanStart={() => {
+      onPanStart={(event) => {
+        if (isTransformHandleTarget(event.target)) {
+          canPanDragRef.current = false;
+          return;
+        }
+
         if (!canPanDragRef.current) {
           return;
         }
 
-        onDragStart(node);
+        onDragStart(node, { altKey: event.altKey });
       }}
       onPan={(event, info) => {
+        if (isTransformHandleTarget(event.target)) {
+          return;
+        }
+
         if (!canPanDragRef.current) {
           return;
         }
@@ -294,6 +307,11 @@ export function CanvasNodeItem({
         onDrag(node, info.offset, { shiftKey: event.shiftKey });
       }}
       onPanEnd={(event, info) => {
+        if (isTransformHandleTarget(event.target)) {
+          canPanDragRef.current = false;
+          return;
+        }
+
         if (!canPanDragRef.current) {
           return;
         }
@@ -306,6 +324,7 @@ export function CanvasNodeItem({
       isSelected &&
       canDrag ? (
         <CanvasNodeTransformHandles
+          onHandlePointerDown={handleTransformPointerDown}
           onResizeStart={handleResizeStart}
           onResize={handleResize}
           onResizeEnd={handleResizeEnd}

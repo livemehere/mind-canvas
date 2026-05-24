@@ -115,7 +115,7 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   borderWidth: 0,
   borderColor: "#ffffff",
   typography: {
-    fontSize: 32,
+    fontSize: 64,
     fontFamily: "Inter, sans-serif",
     fontWeight: 600,
     lineHeight: 1.2,

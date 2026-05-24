@@ -59,6 +59,7 @@ export function CanvasSurface({
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const nodesRef = useRef(nodes);
   const dragSnapCacheRef = useRef<DragSnapCache | null>(null);
+  const dragNodeIdsRef = useRef<string[] | null>(null);
   const [measuredCanvasSize, setMeasuredCanvasSize] =
     useState<CanvasSize>(canvasSize);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
@@ -305,6 +306,7 @@ export function CanvasSurface({
     }
 
     const movingNodeIds =
+      dragNodeIdsRef.current ??
       dragPreview?.nodeIds ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
 
@@ -328,22 +330,52 @@ export function CanvasSurface({
 
     setDragPreview(null);
     dragSnapCacheRef.current = null;
+    dragNodeIdsRef.current = null;
   };
 
-  const handleNodeDragStart = (node: CanvasNode) => {
+  const handleNodeDragStart = (
+    node: CanvasNode,
+    modifiers: { altKey: boolean },
+  ) => {
     if (viewOnly) {
       return;
     }
 
-    const movingNodeIds = activeNodeIds.includes(node.id)
+    const sourceNodeIds = activeNodeIds.includes(node.id)
       ? activeNodeIds
       : [node.id];
+    let movingNodeIds = sourceNodeIds;
+    let leaderId = node.id;
+
+    if (modifiers.altKey) {
+      const duplicatedNodes = nodesRef.current
+        .filter((currentNode) => sourceNodeIds.includes(currentNode.id))
+        .map((currentNode) => {
+          const duplicatedNode = structuredClone(currentNode);
+          duplicatedNode.id = window.crypto.randomUUID();
+
+          if (currentNode.id === node.id) {
+            leaderId = duplicatedNode.id;
+          }
+
+          return duplicatedNode;
+        });
+
+      movingNodeIds = duplicatedNodes.map((duplicatedNode) => duplicatedNode.id);
+      commitNodes(
+        (currentNodes) => [...currentNodes, ...duplicatedNodes],
+        { commitHistory: false },
+      );
+      setActiveNodeIds(movingNodeIds);
+    }
+
+    dragNodeIdsRef.current = movingNodeIds;
 
     const canvasRect = containerRef.current?.getBoundingClientRect();
     if (canvasRect) {
       dragSnapCacheRef.current = buildDragSnapCache({
         movingNodeIds,
-        nodes,
+        nodes: nodesRef.current,
         nodeRefs: nodeRefs.current,
         canvasRect,
         canvasSize: measuredCanvasSize,
@@ -351,7 +383,7 @@ export function CanvasSurface({
     }
 
     setDragPreview({
-      leaderId: node.id,
+      leaderId,
       nodeIds: movingNodeIds,
       offset: { x: 0, y: 0 },
       guides: {},
@@ -367,9 +399,9 @@ export function CanvasSurface({
       return;
     }
 
-    const movingNodeIds = activeNodeIds.includes(node.id)
-      ? activeNodeIds
-      : [node.id];
+    const movingNodeIds =
+      dragNodeIdsRef.current ??
+      (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
 
     let nextOffset = { x: offset.x, y: offset.y };
     let guides: SnapGuide | undefined;
