@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { type CSSProperties } from "react";
-import { type CanvasNode, type TextNode } from "../../core/nodes";
+import { type CanvasNode, type RectNode, type TextNode } from "../../core/nodes";
 
 interface Props {
   node: CanvasNode;
@@ -46,6 +46,46 @@ const getTextStyle = (node: TextNode): CSSProperties => ({
   whiteSpace: "pre-wrap",
 });
 
+const getRectContentStyle = (node: RectNode): CSSProperties => ({
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: node.contentTypography.color,
+  fontSize: node.contentTypography.fontSize,
+  fontFamily: node.contentTypography.fontFamily,
+  fontWeight: node.contentTypography.fontWeight,
+  lineHeight: node.contentTypography.lineHeight,
+  letterSpacing: node.contentTypography.letterSpacing,
+  textAlign: "center",
+  whiteSpace: "pre-wrap",
+  overflow: "hidden",
+  padding: 8,
+  boxSizing: "border-box",
+});
+
+const getNodeStyle = (node: CanvasNode) => {
+  switch (node.type) {
+    case "rect":
+      return {
+        width: node.size.width,
+        height: node.size.height,
+        backgroundColor: node.bgColor,
+        borderRadius: node.radius,
+        border: `${node.borderWidth}px solid ${node.borderColor}`,
+      };
+    case "text":
+      return {
+        backgroundColor: node.bgColor,
+        borderRadius: node.radius,
+        border: `${node.borderWidth}px solid ${node.borderColor}`,
+      };
+    default:
+      return {};
+  }
+};
+
 export function CanvasNodeItem({
   node,
   isSelected,
@@ -79,21 +119,7 @@ export function CanvasNodeItem({
         scale: node.scale,
         opacity: node.opacity,
         rotate: node.rotate,
-        ...(node.type === "rect"
-          ? {
-              width: node.size.width,
-              height: node.size.height,
-              backgroundColor: node.bgColor,
-              borderRadius: node.radius,
-            }
-          : {}),
-        ...(node.type === "text"
-          ? {
-              backgroundColor: node.bgColor,
-              borderRadius: node.radius,
-              border: `${node.borderWidth}px solid ${node.borderColor}`,
-            }
-          : {}),
+        ...getNodeStyle(node),
       }}
       transition={getNodeTransition(node, isSelected)}
       onPointerDown={(event) => onPointerDown(event, node)}
@@ -101,6 +127,9 @@ export function CanvasNodeItem({
       onDrag={(_, info) => onDrag(node, info.offset)}
       onDragEnd={(_, info) => onDragEnd(node, info.offset)}
     >
+      {node.type === "rect" && node.content ? (
+        <div style={getRectContentStyle(node)}>{node.content}</div>
+      ) : null}
       {node.type === "text" ? (
         <div style={getTextStyle(node)}>{node.text}</div>
       ) : null}
