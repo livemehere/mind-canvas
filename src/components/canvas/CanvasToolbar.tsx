@@ -37,25 +37,25 @@ export function CanvasToolbar({
   setShowPreviousOverlay,
 }: Props) {
   return (
-    <div className="absolute left-1/2 -translate-1/2 bottom-4">
-      <div className="flex items-center gap-1.5 bg-neutral-950/80 p-2 rounded">
+    <div className="absolute left-1/2 bottom-5 z-10 -translate-x-1/2">
+      <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-neutral-950/85 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur">
         {TOOL_ACTIONS.map((action) => (
           <button
             key={action.id}
             onClick={() => setActiveToolId(action.id)}
             className={cn(
-              "bg-neutral-800 p-2 rounded hover:opacity-80 transition active:scale-90",
-              activeToolId === action.id && "bg-purple-600",
+              "rounded-xl bg-neutral-800/90 p-2 text-white/80 transition hover:opacity-80 active:scale-90",
+              activeToolId === action.id && "bg-purple-600 text-white",
             )}
-            >
+          >
             {action.icon}
           </button>
         ))}
         <button
           onClick={() => setShowPreviousOverlay((prev) => !prev)}
           className={cn(
-            "bg-neutral-800 p-2 rounded hover:opacity-80 transition active:scale-90",
-            showPreviousOverlay && "bg-purple-600",
+            "rounded-xl bg-neutral-800/90 p-2 text-white/80 transition hover:opacity-80 active:scale-90",
+            showPreviousOverlay && "bg-purple-600 text-white",
           )}
           title="Toggle previous overlay (Shift+O)"
         >

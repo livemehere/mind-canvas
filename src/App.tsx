@@ -233,12 +233,14 @@ export default function App() {
       case "rect": {
         const id = createRect(position.x, position.y);
         setActiveNodeIds([id]);
+        requestControlFocus("rect.content");
         setActiveToolId("select");
         break;
       }
       case "text": {
         const id = createText(position.x, position.y);
         setActiveNodeIds([id]);
+        requestControlFocus("text.text");
         setActiveToolId("select");
         break;
       }
@@ -470,17 +472,20 @@ export default function App() {
     <>
       <Toaster position="top-center" richColors />
       <div className="h-full relative">
-        <div className="absolute top-5 right-5 z-10 text-2xl font-bold">
-          <div className="flex items-center gap-3">
-            <span>Step : {step} / {snapShotLength - 1}</span>
+        <div className="absolute left-1/2 bottom-20 z-10 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-950/85 px-3 py-2 text-xs font-medium text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
+            <span className="tracking-[0.2em] text-white/45">STEP</span>
+            <span className="min-w-16 text-center text-sm font-semibold tracking-tight text-white">
+              {step} / {snapShotLength - 1}
+            </span>
             <button
               type="button"
               onClick={removeCurrentStep}
               disabled={snapShotLength === 1}
-              className="flex h-9 w-9 items-center justify-center rounded bg-neutral-900/80 text-white transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               title="Remove current snapshot"
             >
-              <Trash2 size={18} />
+              <Trash2 size={14} />
             </button>
           </div>
         </div>
@@ -513,7 +518,7 @@ export default function App() {
         />
         <Leva
           hidden={activeNodeIds.length === 0}
-          titleBar={{ position: { x: 0, y: 60 } }}
+          titleBar={{ position: { x: 0, y: 24 } }}
         />
       </div>
     </>
