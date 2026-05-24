@@ -8,9 +8,10 @@ import {
   type Box,
   type SelectionRect,
 } from "../../features/selection/helpers";
-import { SelectedNodeControls } from "./SelectedNodeControls";
+
 import { SelectionOverlay } from "../../features/selection/SelectionOverlay";
 import { type CanvasToolId } from "./CanvasToolbar";
+import { SelectedNodeControls } from "../../features/controls";
 
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
