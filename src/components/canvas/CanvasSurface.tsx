@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { type CanvasNode, type Position } from "../../core/nodes";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { type CanvasNode, type Position, type RectNode } from "../../core/nodes";
 import { CanvasNodeItem } from "./CanvasNodeItem";
 import {
   DRAG_THRESHOLD,
@@ -36,6 +36,7 @@ export function CanvasSurface({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<Position | null>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const nodesRef = useRef(nodes);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null,
   );
@@ -50,13 +51,38 @@ export function CanvasSurface({
     [nodes, activeNodeIds],
   );
 
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  const commitNodes = (updater: (currentNodes: CanvasNode[]) => CanvasNode[]) => {
+    const nextNodes = updater(nodesRef.current);
+    nodesRef.current = nextNodes;
+    setNodes(nextNodes);
+  };
+
   const updateSelectedNodes = (updater: (node: CanvasNode) => CanvasNode) => {
-    setNodes(
-      nodes.map((currentNode) =>
+    commitNodes((currentNodes) =>
+      currentNodes.map((currentNode) =>
         activeNodeIds.includes(currentNode.id)
           ? updater(currentNode)
           : currentNode,
       ),
+    );
+  };
+
+  const updateRectNode = (
+    nodeId: string,
+    updater: (node: RectNode) => RectNode,
+  ) => {
+    commitNodes((currentNodes) =>
+      currentNodes.map((currentNode) => {
+        if (currentNode.id !== nodeId || currentNode.type !== "rect") {
+          return currentNode;
+        }
+
+        return updater(currentNode);
+      }),
     );
   };
 
@@ -207,8 +233,8 @@ export function CanvasSurface({
       dragPreview?.nodeIds ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
 
-    setNodes(
-      nodes.map((currentNode) => {
+    commitNodes((currentNodes) =>
+      currentNodes.map((currentNode) => {
         if (!movingNodeIds.includes(currentNode.id)) {
           return currentNode;
         }
@@ -293,6 +319,7 @@ export function CanvasSurface({
               : undefined
           }
           setNodeRef={setNodeRef}
+          onRectNodeChange={updateRectNode}
           onPointerDown={handleNodePointerDown}
           onDragStart={handleNodeDragStart}
           onDrag={handleNodeDrag}
