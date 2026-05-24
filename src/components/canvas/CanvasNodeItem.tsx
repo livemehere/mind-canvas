@@ -1,6 +1,25 @@
-import { motion } from "motion/react";
-import { type CSSProperties } from "react";
-import { type CanvasNode, type RectNode, type TextNode } from "../../core/nodes";
+import { motion, useDragControls } from "motion/react";
+import { useRef } from "react";
+import { type CanvasNode, type RectNode } from "../../core/nodes";
+import {
+  CanvasNodeTransformHandles,
+  type ResizeHandleDirection,
+} from "./CanvasNodeTransformHandles";
+import {
+  getNodeStyle,
+  getNodeTransition,
+  getRectContentStyle,
+  getTextStyle,
+} from "./CanvasNodeItem.styles";
+import {
+  createRectSnapshot,
+  isTransformHandleTarget,
+  type RectTransformSnapshot,
+  resizeRectNode,
+  ROTATE_SENSITIVITY,
+  type RotateSnapshot,
+  roundNumber,
+} from "./CanvasNodeItem.transforms";
 
 interface Props {
   node: CanvasNode;
@@ -8,6 +27,10 @@ interface Props {
   canDrag: boolean;
   previewOffset?: { x: number; y: number };
   setNodeRef: (nodeId: string, element: HTMLDivElement | null) => void;
+  onRectNodeChange: (
+    nodeId: string,
+    updater: (node: RectNode) => RectNode,
+  ) => void;
   onPointerDown: (
     event: React.PointerEvent<HTMLDivElement>,
     node: CanvasNode,
@@ -17,92 +40,115 @@ interface Props {
   onDragEnd: (node: CanvasNode, offset: { x: number; y: number }) => void;
 }
 
-const getNodeTransition = (node: CanvasNode, isSelected: boolean) => {
-  if (isSelected) {
-    return { duration: 0 };
-  }
-
-  if (node.transition === "spring") {
-    return {
-      type: "spring" as const,
-      stiffness: 150,
-      damping: 30,
-    };
-  }
-
-  return { duration: 0 };
-};
-
-const getTextStyle = (node: TextNode): CSSProperties => ({
-  color: node.color,
-  fontSize: node.typography.fontSize,
-  fontFamily: node.typography.fontFamily,
-  fontWeight: node.typography.fontWeight,
-  lineHeight: node.typography.lineHeight,
-  letterSpacing: node.typography.letterSpacing,
-  textAlign: node.typography.textAlign,
-  WebkitTextStrokeWidth: `${node.typography.strokeWidth}px`,
-  WebkitTextStrokeColor: node.typography.strokeColor,
-  whiteSpace: "pre-wrap",
-});
-
-const getRectContentStyle = (node: RectNode): CSSProperties => ({
-  width: "100%",
-  height: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: node.contentTypography.color,
-  fontSize: node.contentTypography.fontSize,
-  fontFamily: node.contentTypography.fontFamily,
-  fontWeight: node.contentTypography.fontWeight,
-  lineHeight: node.contentTypography.lineHeight,
-  letterSpacing: node.contentTypography.letterSpacing,
-  textAlign: "center",
-  whiteSpace: "pre-wrap",
-  overflow: "hidden",
-  padding: 8,
-  boxSizing: "border-box",
-});
-
-const getNodeStyle = (node: CanvasNode) => {
-  switch (node.type) {
-    case "rect":
-      return {
-        width: node.size.width,
-        height: node.size.height,
-        backgroundColor: node.bgColor,
-        borderRadius: node.radius,
-        border: `${node.borderWidth}px solid ${node.borderColor}`,
-      };
-    case "text":
-      return {
-        backgroundColor: node.bgColor,
-        borderRadius: node.radius,
-        border: `${node.borderWidth}px solid ${node.borderColor}`,
-      };
-    default:
-      return {};
-  }
-};
-
 export function CanvasNodeItem({
   node,
   isSelected,
   canDrag,
   previewOffset,
   setNodeRef,
+  onRectNodeChange,
   onPointerDown,
   onDragStart,
   onDrag,
   onDragEnd,
 }: Props) {
+  const itemRef = useRef<HTMLDivElement | null>(null);
+  const resizeSnapshotRef = useRef<RectTransformSnapshot | null>(null);
+  const rotateSnapshotRef = useRef<RotateSnapshot | null>(null);
+  const dragControls = useDragControls();
+
+  const handleResizeStart = () => {
+    if (node.type !== "rect") {
+      return;
+    }
+
+    resizeSnapshotRef.current = createRectSnapshot(node);
+  };
+
+  const handleResize = (
+    direction: ResizeHandleDirection,
+    offset: { x: number; y: number },
+  ) => {
+    if (node.type !== "rect") {
+      return;
+    }
+
+    const snapshot = resizeSnapshotRef.current ?? createRectSnapshot(node);
+
+    onRectNodeChange(node.id, (currentNode) =>
+      resizeRectNode(currentNode, snapshot, direction, offset),
+    );
+  };
+
+  const handleResizeEnd = (
+    direction: ResizeHandleDirection,
+    offset: { x: number; y: number },
+  ) => {
+    handleResize(direction, offset);
+    resizeSnapshotRef.current = null;
+  };
+
+  const handleRotateStart = () => {
+    if (node.type !== "rect") {
+      return;
+    }
+
+    rotateSnapshotRef.current = {
+      rotate: node.rotate,
+    };
+  };
+
+  const handleRotate = (offset: { x: number; y: number }) => {
+    if (node.type !== "rect") {
+      return;
+    }
+
+    const snapshot = rotateSnapshotRef.current ?? {
+      rotate: node.rotate,
+    };
+
+    const nextRotate = roundNumber(
+      snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
+    );
+
+    onRectNodeChange(node.id, (currentNode) => ({
+      ...currentNode,
+      rotate: nextRotate,
+    }));
+  };
+
+  const handleRotateEnd = (offset: { x: number; y: number }) => {
+    handleRotate(offset);
+    rotateSnapshotRef.current = null;
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerDown(event, node);
+
+    if (!canDrag || event.button !== 0) {
+      return;
+    }
+
+    if (event.shiftKey || event.metaKey || event.ctrlKey) {
+      return;
+    }
+
+    if (isTransformHandleTarget(event.target)) {
+      return;
+    }
+
+    dragControls.start(event);
+  };
+
   return (
     <motion.div
       ref={(element) => {
+        itemRef.current = element;
         setNodeRef(node.id, element);
       }}
       drag={canDrag}
+      dragControls={dragControls}
+      dragListener={false}
       dragMomentum={false}
       style={{
         position: "absolute",
@@ -110,6 +156,7 @@ export function CanvasNodeItem({
         top: 0,
         zIndex: node.zIndex,
         userSelect: "none",
+        overflow: "visible",
         ...(isSelected ? { outline: "4px solid #9810FA" } : {}),
       }}
       initial={false}
@@ -122,11 +169,21 @@ export function CanvasNodeItem({
         ...getNodeStyle(node),
       }}
       transition={getNodeTransition(node, isSelected)}
-      onPointerDown={(event) => onPointerDown(event, node)}
+      onPointerDown={handlePointerDown}
       onDragStart={() => onDragStart(node)}
       onDrag={(_, info) => onDrag(node, info.offset)}
       onDragEnd={(_, info) => onDragEnd(node, info.offset)}
     >
+      {node.type === "rect" && isSelected && canDrag ? (
+        <CanvasNodeTransformHandles
+          onResizeStart={handleResizeStart}
+          onResize={handleResize}
+          onResizeEnd={handleResizeEnd}
+          onRotateStart={handleRotateStart}
+          onRotate={handleRotate}
+          onRotateEnd={handleRotateEnd}
+        />
+      ) : null}
       {node.type === "rect" && node.content ? (
         <div style={getRectContentStyle(node)}>{node.content}</div>
       ) : null}
