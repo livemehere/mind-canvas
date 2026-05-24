@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   type CanvasNode,
   type RectNode,
@@ -95,14 +95,6 @@ export function CanvasNodeItem({
     shouldPlayEntranceAnimation,
   );
 
-  useEffect(() => {
-    if (!shouldPlayEntranceAnimation) {
-      return;
-    }
-
-    setIsEntranceAnimating(true);
-  }, [shouldPlayEntranceAnimation]);
-
   const handleResizeStart = () => {
     if (node.type !== "rect") {
       if (node.type === "text") {
@@ -173,7 +165,7 @@ export function CanvasNodeItem({
     textSnapshotRef.current = null;
   };
 
-  const handleRotateStart = (_modifiers: RotateHandleModifiers) => {
+  const handleRotateStart = () => {
     if (node.type !== "rect" && node.type !== "text") {
       return;
     }
