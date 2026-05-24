@@ -1,10 +1,6 @@
 import { useControls } from "leva";
 import { useEffect, useRef } from "react";
-import {
-  TEXT_ALIGN_OPTIONS,
-  type TextAlign,
-  type TextNode,
-} from "../../core/nodes";
+import { type TextNode } from "../../core/nodes";
 import {
   MIXED_HINT,
   clearNumericEditSession,
@@ -14,6 +10,12 @@ import {
   useLevaSync,
 } from "./shared";
 import { consumeControlFocus, focusLevaControlByLabel } from "./focus";
+import {
+  createTypographyControls,
+  getTypographySharedValues,
+  typographyDependencyList,
+  typographySyncValues,
+} from "./typography";
 import {
   type LevaOnChangeContext,
   type NumericEditSession,
@@ -35,65 +37,15 @@ export function TextSelectionControls({
     nodes.map((node) => node.color),
     "#ffffff",
   );
-  const fontSize = getSharedValue(
-    nodes.map((node) => node.typography.fontSize),
-    32,
-  );
-  const fontFamily = getSharedValue(
-    nodes.map((node) => node.typography.fontFamily),
-    "Inter, sans-serif",
-  );
-  const fontWeight = getSharedValue(
-    nodes.map((node) => node.typography.fontWeight),
-    600,
-  );
-  const lineHeight = getSharedValue(
-    nodes.map((node) => node.typography.lineHeight),
-    1.2,
-  );
-  const letterSpacing = getSharedValue(
-    nodes.map((node) => node.typography.letterSpacing),
+  const paddingX = getSharedValue(
+    nodes.map((node) => node.paddingX),
     0,
   );
-  const textAlign = getSharedValue<TextAlign>(
-    nodes.map((node) => node.typography.textAlign),
-    "left",
-  );
-  const strokeWidth = getSharedValue(
-    nodes.map((node) => node.typography.strokeWidth),
+  const paddingY = getSharedValue(
+    nodes.map((node) => node.paddingY),
     0,
   );
-  const strokeColor = getSharedValue(
-    nodes.map((node) => node.typography.strokeColor),
-    "#000000",
-  );
-
-  const applyNumericChange = (
-    key: string,
-    nextValue: number,
-    getValue: (node: TextNode) => number,
-    setValue: (node: TextNode, value: number) => TextNode,
-    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
-  ) => {
-    const session = sessionsRef.current[key];
-
-    if (session?.mixed && session.source === "drag") {
-      const delta = nextValue - session.displayStartValue;
-
-      updateSelectedNodes((node) => {
-        if (node.type !== "text") return node;
-        const initialValue =
-          session.initialValues.get(node.id) ?? getValue(node);
-        return setValue(node, initialValue + delta);
-      }, options);
-      return;
-    }
-
-    updateSelectedNodes(
-      (node) => (node.type === "text" ? setValue(node, nextValue) : node),
-      options,
-    );
-  };
+  const typography = getTypographySharedValues(nodes, (node) => node.typography);
 
   const commitSelectedNodes = () => {
     updateSelectedNodes((node) => node, { syncMatchingIds: true });
@@ -107,7 +59,48 @@ export function TextSelectionControls({
     isEditingRef.current = Math.max(0, isEditingRef.current - 1);
   };
 
+  const applyNumericChange = (
+    key: string,
+    nextValue: number,
+    getValue: (node: TextNode) => number,
+    setValue: (node: TextNode, value: number) => TextNode,
+  ) => {
+    const session = sessionsRef.current[key];
+
+    if (session?.mixed && session.source === "drag") {
+      const delta = nextValue - session.displayStartValue;
+
+      updateSelectedNodes(
+        (node) => {
+          if (node.type !== "text") return node;
+          const initialValue =
+            session.initialValues.get(node.id) ?? getValue(node);
+          return setValue(node, initialValue + delta);
+        },
+        { commitHistory: false },
+      );
+      return;
+    }
+
+    updateSelectedNodes(
+      (node) => (node.type === "text" ? setValue(node, nextValue) : node),
+      { commitHistory: false },
+    );
+  };
+
+  const updateTypographyNodes = (
+    updater: (node: TextNode) => TextNode,
+    context: LevaOnChangeContext,
+  ) => {
+    if (shouldIgnoreLevaChange(context)) return;
+    updateSelectedNodes(
+      (node) => (node.type === "text" ? updater(node) : node),
+      { commitHistory: false },
+    );
+  };
+
   const [, setControls] = useControls(
+    "Text",
     () => ({
       text: {
         value: text.mixed ? "" : text.value,
@@ -152,289 +145,84 @@ export function TextSelectionControls({
           );
         },
       },
-      fontSize: {
-        value: fontSize.mixed ? 0 : fontSize.value,
-        hint: fontSize.mixed ? MIXED_HINT : undefined,
-        step: 1,
-        min: 8,
-        onChange: (
-          nextFontSize: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
-          if (shouldIgnoreLevaChange(context)) return;
-          applyNumericChange(
-            "text.fontSize",
-            nextFontSize,
-            (node) => node.typography.fontSize,
-            (node, value) => ({
-              ...node,
-              typography: { ...node.typography, fontSize: value },
-            }),
-            { commitHistory: false },
-          );
-        },
-        onEditStart: () => {
-          startEdit();
-          startNumericEditSession(
-            sessionsRef,
-            "text.fontSize",
-            nodes,
-            (node) => node.typography.fontSize,
-            fontSize.mixed ? 0 : fontSize.value,
-            fontSize.mixed,
-          );
-        },
-        onEditEnd: () => {
-          commitSelectedNodes();
-          clearNumericEditSession(sessionsRef, "text.fontSize");
-          endEdit();
-        },
-      },
-      fontFamily: {
-        value: fontFamily.mixed ? "" : fontFamily.value,
-        hint: fontFamily.mixed ? MIXED_HINT : undefined,
-        onEditStart: startEdit,
-        onEditEnd: () => {
-          commitSelectedNodes();
-          endEdit();
-        },
-        onChange: (
-          nextFontFamily: string,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
-          if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes(
-            (node) =>
-              node.type === "text"
-                ? {
-                    ...node,
-                    typography: {
-                      ...node.typography,
-                      fontFamily: nextFontFamily,
-                    },
-                  }
-                : node,
-            { commitHistory: false },
-          );
-        },
-      },
-      fontWeight: {
-        value: fontWeight.mixed ? 0 : fontWeight.value,
-        hint: fontWeight.mixed ? MIXED_HINT : undefined,
-        step: 100,
-        min: 100,
-        max: 900,
-        onChange: (
-          nextFontWeight: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
-          if (shouldIgnoreLevaChange(context)) return;
-          applyNumericChange(
-            "text.fontWeight",
-            nextFontWeight,
-            (node) => node.typography.fontWeight,
-            (node, value) => ({
-              ...node,
-              typography: { ...node.typography, fontWeight: value },
-            }),
-            { commitHistory: false },
-          );
-        },
-        onEditStart: () => {
-          startEdit();
-          startNumericEditSession(
-            sessionsRef,
-            "text.fontWeight",
-            nodes,
-            (node) => node.typography.fontWeight,
-            fontWeight.mixed ? 0 : fontWeight.value,
-            fontWeight.mixed,
-          );
-        },
-        onEditEnd: () => {
-          commitSelectedNodes();
-          clearNumericEditSession(sessionsRef, "text.fontWeight");
-          endEdit();
-        },
-      },
-      lineHeight: {
-        value: lineHeight.mixed ? 0 : lineHeight.value,
-        hint: lineHeight.mixed ? MIXED_HINT : undefined,
-        step: 0.1,
-        min: 0,
-        onChange: (
-          nextLineHeight: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
-          if (shouldIgnoreLevaChange(context)) return;
-          applyNumericChange(
-            "text.lineHeight",
-            nextLineHeight,
-            (node) => node.typography.lineHeight,
-            (node, value) => ({
-              ...node,
-              typography: { ...node.typography, lineHeight: value },
-            }),
-            { commitHistory: false },
-          );
-        },
-        onEditStart: () => {
-          startEdit();
-          startNumericEditSession(
-            sessionsRef,
-            "text.lineHeight",
-            nodes,
-            (node) => node.typography.lineHeight,
-            lineHeight.mixed ? 0 : lineHeight.value,
-            lineHeight.mixed,
-          );
-        },
-        onEditEnd: () => {
-          commitSelectedNodes();
-          clearNumericEditSession(sessionsRef, "text.lineHeight");
-          endEdit();
-        },
-      },
-      letterSpacing: {
-        value: letterSpacing.mixed ? 0 : letterSpacing.value,
-        hint: letterSpacing.mixed ? MIXED_HINT : undefined,
-        step: 0.1,
-        onChange: (
-          nextLetterSpacing: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
-          if (shouldIgnoreLevaChange(context)) return;
-          applyNumericChange(
-            "text.letterSpacing",
-            nextLetterSpacing,
-            (node) => node.typography.letterSpacing,
-            (node, value) => ({
-              ...node,
-              typography: { ...node.typography, letterSpacing: value },
-            }),
-            { commitHistory: false },
-          );
-        },
-        onEditStart: () => {
-          startEdit();
-          startNumericEditSession(
-            sessionsRef,
-            "text.letterSpacing",
-            nodes,
-            (node) => node.typography.letterSpacing,
-            letterSpacing.mixed ? 0 : letterSpacing.value,
-            letterSpacing.mixed,
-          );
-        },
-        onEditEnd: () => {
-          commitSelectedNodes();
-          clearNumericEditSession(sessionsRef, "text.letterSpacing");
-          endEdit();
-        },
-      },
-      textAlign: {
-        options: [...TEXT_ALIGN_OPTIONS],
-        value: textAlign.value,
-        hint: textAlign.mixed ? MIXED_HINT : undefined,
-        onEditStart: startEdit,
-        onEditEnd: () => {
-          commitSelectedNodes();
-          endEdit();
-        },
-        onChange: (
-          nextTextAlign: TextAlign,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
-          if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes(
-            (node) =>
-              node.type === "text"
-                ? {
-                    ...node,
-                    typography: {
-                      ...node.typography,
-                      textAlign: nextTextAlign,
-                    },
-                  }
-                : node,
-            { commitHistory: false },
-          );
-        },
-      },
-      strokeWidth: {
-        value: strokeWidth.mixed ? 0 : strokeWidth.value,
-        hint: strokeWidth.mixed ? MIXED_HINT : undefined,
+      paddingX: {
+        value: paddingX.mixed ? 0 : paddingX.value,
+        hint: paddingX.mixed ? MIXED_HINT : undefined,
         step: 1,
         min: 0,
-        onChange: (
-          nextStrokeWidth: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
           applyNumericChange(
-            "text.strokeWidth",
-            nextStrokeWidth,
-            (node) => node.typography.strokeWidth,
-            (node, value) => ({
-              ...node,
-              typography: { ...node.typography, strokeWidth: value },
-            }),
-            { commitHistory: false },
+            "text.paddingX",
+            nextValue,
+            (node) => node.paddingX,
+            (node, value) => ({ ...node, paddingX: value }),
           );
         },
         onEditStart: () => {
           startEdit();
           startNumericEditSession(
             sessionsRef,
-            "text.strokeWidth",
+            "text.paddingX",
             nodes,
-            (node) => node.typography.strokeWidth,
-            strokeWidth.mixed ? 0 : strokeWidth.value,
-            strokeWidth.mixed,
+            (node) => node.paddingX,
+            paddingX.mixed ? 0 : paddingX.value,
+            paddingX.mixed,
           );
         },
         onEditEnd: () => {
           commitSelectedNodes();
-          clearNumericEditSession(sessionsRef, "text.strokeWidth");
+          clearNumericEditSession(sessionsRef, "text.paddingX");
           endEdit();
         },
       },
-      strokeColor: {
-        value: strokeColor.value,
-        hint: strokeColor.mixed ? MIXED_HINT : undefined,
-        onEditStart: startEdit,
-        onEditEnd: () => {
-          commitSelectedNodes();
-          endEdit();
-        },
-        onChange: (
-          nextStrokeColor: string,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
+      paddingY: {
+        value: paddingY.mixed ? 0 : paddingY.value,
+        hint: paddingY.mixed ? MIXED_HINT : undefined,
+        step: 1,
+        min: 0,
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
-          updateSelectedNodes(
-            (node) =>
-              node.type === "text"
-                ? {
-                    ...node,
-                    typography: {
-                      ...node.typography,
-                      strokeColor: nextStrokeColor,
-                    },
-                  }
-                : node,
-            { commitHistory: false },
+          applyNumericChange(
+            "text.paddingY",
+            nextValue,
+            (node) => node.paddingY,
+            (node, value) => ({ ...node, paddingY: value }),
           );
         },
+        onEditStart: () => {
+          startEdit();
+          startNumericEditSession(
+            sessionsRef,
+            "text.paddingY",
+            nodes,
+            (node) => node.paddingY,
+            paddingY.mixed ? 0 : paddingY.value,
+            paddingY.mixed,
+          );
+        },
+        onEditEnd: () => {
+          commitSelectedNodes();
+          clearNumericEditSession(sessionsRef, "text.paddingY");
+          endEdit();
+        },
       },
+      ...createTypographyControls<TextNode>({
+        prefix: "text",
+        typography,
+        startEdit,
+        endEdit: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        getTypography: (node) => node.typography,
+        setTypography: (node, nextTypography) => ({
+          ...node,
+          typography: nextTypography,
+        }),
+        applyNumericChange,
+        updateNodes: updateTypographyNodes,
+      }),
     }),
     [
       nodes,
@@ -442,22 +230,11 @@ export function TextSelectionControls({
       text.mixed,
       color.value,
       color.mixed,
-      fontSize.value,
-      fontSize.mixed,
-      fontFamily.value,
-      fontFamily.mixed,
-      fontWeight.value,
-      fontWeight.mixed,
-      lineHeight.value,
-      lineHeight.mixed,
-      letterSpacing.value,
-      letterSpacing.mixed,
-      textAlign.value,
-      textAlign.mixed,
-      strokeWidth.value,
-      strokeWidth.mixed,
-      strokeColor.value,
-      strokeColor.mixed,
+      paddingX.value,
+      paddingX.mixed,
+      paddingY.value,
+      paddingY.mixed,
+      ...typographyDependencyList(typography),
     ],
   );
 
@@ -466,14 +243,9 @@ export function TextSelectionControls({
     {
       text: text.mixed ? "" : text.value,
       color: color.value,
-      fontSize: fontSize.mixed ? 0 : fontSize.value,
-      fontFamily: fontFamily.mixed ? "" : fontFamily.value,
-      fontWeight: fontWeight.mixed ? 0 : fontWeight.value,
-      lineHeight: lineHeight.mixed ? 0 : lineHeight.value,
-      letterSpacing: letterSpacing.mixed ? 0 : letterSpacing.value,
-      textAlign: textAlign.value,
-      strokeWidth: strokeWidth.mixed ? 0 : strokeWidth.value,
-      strokeColor: strokeColor.value,
+      paddingX: paddingX.mixed ? 0 : paddingX.value,
+      paddingY: paddingY.mixed ? 0 : paddingY.value,
+      ...typographySyncValues(typography),
     },
     isEditingRef,
   );

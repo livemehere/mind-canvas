@@ -6,6 +6,7 @@ export interface Position {
 export const NODE_TRANSITIONS = ["spring", "none"] as const;
 
 export const TEXT_ALIGN_OPTIONS = ["left", "center", "right"] as const;
+export const FONT_STYLE_OPTIONS = ["normal", "italic"] as const;
 export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
 export const RECT_CONTENT_COLOR_OPTIONS = {
   black: "#000000",
@@ -14,26 +15,25 @@ export const RECT_CONTENT_COLOR_OPTIONS = {
 
 export type NodeTransition = (typeof NODE_TRANSITIONS)[number];
 export type TextAlign = (typeof TEXT_ALIGN_OPTIONS)[number];
+export type FontStyle = (typeof FONT_STYLE_OPTIONS)[number];
 export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
 
 export interface Typography {
   fontSize: number;
   fontFamily: string;
   fontWeight: number;
+  fontStyle: FontStyle;
   lineHeight: number;
   letterSpacing: number;
   textAlign: TextAlign;
+  underline: boolean;
+  strikethrough: boolean;
   strokeWidth: number;
   strokeColor: string;
 }
 
-export interface RectContentTypography {
+export interface RectContentTypography extends Typography {
   color: string;
-  fontSize: number;
-  fontFamily: string;
-  fontWeight: number;
-  lineHeight: number;
-  letterSpacing: number;
 }
 
 export interface BaseNode {
@@ -67,6 +67,8 @@ export interface TextNode extends BaseNode {
   type: "text";
   text: string;
   color: string;
+  paddingX: number;
+  paddingY: number;
   typography: Typography;
 }
 
@@ -94,8 +96,14 @@ export const DEFAULT_RECT_NODE: RectNode = {
     fontSize: 20,
     fontFamily: "Inter, sans-serif",
     fontWeight: 600,
+    fontStyle: "normal",
     lineHeight: 1.2,
     letterSpacing: 0,
+    textAlign: "center",
+    underline: false,
+    strikethrough: false,
+    strokeWidth: 0,
+    strokeColor: "#000000",
   },
 };
 
@@ -110,6 +118,8 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   transition: "spring",
   text: "Text",
   color: "#ffffff",
+  paddingX: 0,
+  paddingY: 0,
   bgColor: "transparent",
   radius: 0,
   borderWidth: 0,
@@ -118,9 +128,12 @@ export const DEFAULT_TEXT_NODE: TextNode = {
     fontSize: 64,
     fontFamily: "Inter, sans-serif",
     fontWeight: 600,
+    fontStyle: "normal",
     lineHeight: 1.2,
     letterSpacing: 0,
     textAlign: "left",
+    underline: false,
+    strikethrough: false,
     strokeWidth: 0,
     strokeColor: "#000000",
   },

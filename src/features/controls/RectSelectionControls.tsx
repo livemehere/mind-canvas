@@ -2,7 +2,6 @@ import { useControls } from "leva";
 import { useEffect, useRef } from "react";
 import {
   RECT_BACKGROUND_SIZE_OPTIONS,
-  RECT_CONTENT_COLOR_OPTIONS,
   type RectBackgroundSize,
   type RectNode,
 } from "../../core/nodes";
@@ -15,6 +14,12 @@ import {
   useLevaSync,
 } from "./shared";
 import { consumeControlFocus, focusLevaControlByLabel } from "./focus";
+import {
+  createTypographyControls,
+  getTypographySharedValues,
+  typographyDependencyList,
+  typographySyncValues,
+} from "./typography";
 import {
   type LevaOnChangeContext,
   type NumericEditSession,
@@ -40,41 +45,18 @@ export function RectSelectionControls({
     nodes.map((node) => node.content),
     "",
   );
-  const contentColor = getSharedValue(
-    nodes.map((node) => node.contentTypography.color),
-    RECT_CONTENT_COLOR_OPTIONS.black,
-  );
   const backgroundSize = getSharedValue<RectBackgroundSize>(
     nodes.map((node) => node.backgroundSize),
     "cover",
   );
-
-  const applyNumericChange = (
-    key: string,
-    nextValue: number,
-    getValue: (node: RectNode) => number,
-    setValue: (node: RectNode, value: number) => RectNode,
-    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
-  ) => {
-    const session = sessionsRef.current[key];
-
-    if (session?.mixed && session.source === "drag") {
-      const delta = nextValue - session.displayStartValue;
-
-      updateSelectedNodes((node) => {
-        if (node.type !== "rect") return node;
-        const initialValue =
-          session.initialValues.get(node.id) ?? getValue(node);
-        return setValue(node, initialValue + delta);
-      }, options);
-      return;
-    }
-
-    updateSelectedNodes(
-      (node) => (node.type === "rect" ? setValue(node, nextValue) : node),
-      options,
-    );
-  };
+  const contentColor = getSharedValue(
+    nodes.map((node) => node.contentTypography.color),
+    "#000000",
+  );
+  const typography = getTypographySharedValues(
+    nodes,
+    (node) => node.contentTypography,
+  );
 
   const commitSelectedNodes = () => {
     updateSelectedNodes((node) => node, { syncMatchingIds: true });
@@ -88,28 +70,64 @@ export function RectSelectionControls({
     isEditingRef.current = Math.max(0, isEditingRef.current - 1);
   };
 
+  const applyNumericChange = (
+    key: string,
+    nextValue: number,
+    getValue: (node: RectNode) => number,
+    setValue: (node: RectNode, value: number) => RectNode,
+  ) => {
+    const session = sessionsRef.current[key];
+
+    if (session?.mixed && session.source === "drag") {
+      const delta = nextValue - session.displayStartValue;
+
+      updateSelectedNodes(
+        (node) => {
+          if (node.type !== "rect") return node;
+          const initialValue =
+            session.initialValues.get(node.id) ?? getValue(node);
+          return setValue(node, initialValue + delta);
+        },
+        { commitHistory: false },
+      );
+      return;
+    }
+
+    updateSelectedNodes(
+      (node) => (node.type === "rect" ? setValue(node, nextValue) : node),
+      { commitHistory: false },
+    );
+  };
+
+  const updateRectNodes = (
+    updater: (node: RectNode) => RectNode,
+    context: LevaOnChangeContext,
+  ) => {
+    if (shouldIgnoreLevaChange(context)) return;
+    updateSelectedNodes(
+      (node) => (node.type === "rect" ? updater(node) : node),
+      { commitHistory: false },
+    );
+  };
+
   const [, setControls] = useControls(
+    "Rect",
     () => ({
       width: {
         value: width.mixed ? 0 : width.value,
         hint: width.mixed ? MIXED_HINT : undefined,
         step: 1,
         min: 1,
-        onChange: (
-          nextWidth: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
           applyNumericChange(
             "rect.width",
-            nextWidth,
+            nextValue,
             (node) => node.size.width,
             (node, value) => ({
               ...node,
               size: { ...node.size, width: value },
             }),
-            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -134,21 +152,16 @@ export function RectSelectionControls({
         hint: height.mixed ? MIXED_HINT : undefined,
         step: 1,
         min: 1,
-        onChange: (
-          nextHeight: number,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
           applyNumericChange(
             "rect.height",
-            nextHeight,
+            nextValue,
             (node) => node.size.height,
             (node, value) => ({
               ...node,
               size: { ...node.size, height: value },
             }),
-            { commitHistory: false },
           );
         },
         onEditStart: () => {
@@ -177,21 +190,16 @@ export function RectSelectionControls({
           commitSelectedNodes();
           endEdit();
         },
-        onChange: (
-          nextContent: string,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
+        onChange: (nextValue: string, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
           updateSelectedNodes(
             (node) =>
-              node.type === "rect" ? { ...node, content: nextContent } : node,
+              node.type === "rect" ? { ...node, content: nextValue } : node,
             { commitHistory: false },
           );
         },
       },
       contentColor: {
-        options: RECT_CONTENT_COLOR_OPTIONS,
         value: contentColor.value,
         hint: contentColor.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
@@ -199,11 +207,7 @@ export function RectSelectionControls({
           commitSelectedNodes();
           endEdit();
         },
-        onChange: (
-          nextContentColor: string,
-          _: string,
-          context: LevaOnChangeContext,
-        ) => {
+        onChange: (nextValue: string, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
           updateSelectedNodes(
             (node) =>
@@ -212,7 +216,7 @@ export function RectSelectionControls({
                     ...node,
                     contentTypography: {
                       ...node.contentTypography,
-                      color: nextContentColor,
+                      color: nextValue,
                     },
                   }
                 : node,
@@ -230,7 +234,7 @@ export function RectSelectionControls({
           endEdit();
         },
         onChange: (
-          nextBackgroundSize: RectBackgroundSize,
+          nextValue: RectBackgroundSize,
           _: string,
           context: LevaOnChangeContext,
         ) => {
@@ -240,13 +244,32 @@ export function RectSelectionControls({
               node.type === "rect"
                 ? {
                     ...node,
-                    backgroundSize: nextBackgroundSize,
+                    backgroundSize: nextValue,
                   }
                 : node,
             { commitHistory: false },
           );
         },
       },
+      ...createTypographyControls<RectNode>({
+        prefix: "rect.contentTypography",
+        typography,
+        startEdit,
+        endEdit: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        getTypography: (node) => node.contentTypography,
+        setTypography: (node, nextTypography) => ({
+          ...node,
+          contentTypography: {
+            ...nextTypography,
+            color: node.contentTypography.color,
+          },
+        }),
+        applyNumericChange,
+        updateNodes: updateRectNodes,
+      }),
     }),
     [
       nodes,
@@ -260,6 +283,7 @@ export function RectSelectionControls({
       contentColor.mixed,
       backgroundSize.value,
       backgroundSize.mixed,
+      ...typographyDependencyList(typography),
     ],
   );
 
@@ -271,6 +295,7 @@ export function RectSelectionControls({
       content: content.mixed ? "" : content.value,
       contentColor: contentColor.value,
       backgroundSize: backgroundSize.value,
+      ...typographySyncValues(typography),
     },
     isEditingRef,
   );

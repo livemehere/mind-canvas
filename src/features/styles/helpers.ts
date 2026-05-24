@@ -3,6 +3,7 @@ import {
   type CanvasNode,
   type RectNode,
   type TextNode,
+  type Typography,
 } from "../../core/nodes";
 
 export const getNodeTransition = (node: CanvasNode, isSelected: boolean) => {
@@ -21,17 +22,44 @@ export const getNodeTransition = (node: CanvasNode, isSelected: boolean) => {
   return { duration: 0 };
 };
 
-export const getTextStyle = (node: TextNode): CSSProperties => ({
-  color: node.color,
-  fontSize: node.typography.fontSize,
-  fontFamily: node.typography.fontFamily,
-  fontWeight: node.typography.fontWeight,
-  lineHeight: node.typography.lineHeight,
-  letterSpacing: node.typography.letterSpacing,
-  textAlign: node.typography.textAlign,
-  WebkitTextStrokeWidth: `${node.typography.strokeWidth}px`,
-  WebkitTextStrokeColor: node.typography.strokeColor,
+const getTextDecorationLine = (typography: Typography) => {
+  if (typography.underline && typography.strikethrough) {
+    return "underline line-through";
+  }
+
+  if (typography.underline) {
+    return "underline";
+  }
+
+  if (typography.strikethrough) {
+    return "line-through";
+  }
+
+  return "none";
+};
+
+const getTypographyStyle = (
+  typography: Typography,
+  color?: string,
+): CSSProperties => ({
+  ...(color ? { color } : {}),
+  fontSize: typography.fontSize,
+  fontFamily: typography.fontFamily,
+  fontWeight: typography.fontWeight,
+  fontStyle: typography.fontStyle,
+  lineHeight: typography.lineHeight,
+  letterSpacing: typography.letterSpacing,
+  textAlign: typography.textAlign,
+  textDecorationLine: getTextDecorationLine(typography),
+  WebkitTextStrokeWidth: `${typography.strokeWidth}px`,
+  WebkitTextStrokeColor: typography.strokeColor,
   whiteSpace: "pre-wrap",
+});
+
+export const getTextStyle = (node: TextNode): CSSProperties => ({
+  ...getTypographyStyle(node.typography, node.color),
+  padding: `${node.paddingY}px ${node.paddingX}px`,
+  boxSizing: "border-box",
 });
 
 export const getRectContentStyle = (node: RectNode): CSSProperties => ({
@@ -40,14 +68,7 @@ export const getRectContentStyle = (node: RectNode): CSSProperties => ({
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: node.contentTypography.color,
-  fontSize: node.contentTypography.fontSize,
-  fontFamily: node.contentTypography.fontFamily,
-  fontWeight: node.contentTypography.fontWeight,
-  lineHeight: node.contentTypography.lineHeight,
-  letterSpacing: node.contentTypography.letterSpacing,
-  textAlign: "center",
-  whiteSpace: "pre-wrap",
+  ...getTypographyStyle(node.contentTypography, node.contentTypography.color),
   overflow: "hidden",
   padding: 8,
   boxSizing: "border-box",
