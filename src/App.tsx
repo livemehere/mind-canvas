@@ -1,5 +1,5 @@
 import { Canvas } from "./components/Canvas";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { type CNode, type Position, RECT, type SnapShot } from "./core/CNode";
 import { useHotkeys } from "react-hotkeys-hook";
 import { flushSync } from "react-dom";
@@ -46,6 +46,9 @@ export default function App() {
       return newSnapShot;
     });
   };
+  const removeNode = (nodeId: string) => {
+    setCurrentSnapShotNodes(currentNodes.filter((n) => n.id !== nodeId));
+  };
 
   const addSnapShot = (duplicateLatest?: boolean) => {
     const newSnapShot: SnapShot = {
@@ -90,6 +93,16 @@ export default function App() {
 
   useHotkeys("q", () => setActiveToolId("select"));
   useHotkeys("w", () => setActiveToolId("rect"));
+  useHotkeys("Escape", () => {
+    setActiveNodeId(null);
+    setActiveToolId("select");
+  });
+  useHotkeys("Backspace", () => {
+    if (activeNodeId) {
+      removeNode(activeNodeId);
+      setActiveNodeId(null);
+    }
+  });
 
   useHotkeys("1", () => {
     setStep((prev) => Math.max(0, prev - 1));
@@ -123,7 +136,7 @@ export default function App() {
         onClickBackground={handleClickBackground}
       />
       <Toolbar activeToolId={activeToolId} setActiveToolId={setActiveToolId} />
-      <Leva titleBar={{ position: { x: 0, y: 60 } }} />
+      <Leva hidden={!activeNodeId} titleBar={{ position: { x: 0, y: 60 } }} />
     </div>
   );
 }

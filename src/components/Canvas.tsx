@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { type CNode, type Position, RECT } from "../core/CNode";
+import { type CNode, type Position } from "../core/CNode";
 import { useMemo, useState } from "react";
 import { useControls } from "leva";
 
@@ -22,7 +22,6 @@ export function Canvas({
     () => nodes.find((n) => n.id === activeNodeId) ?? null,
     [nodes, activeNodeId],
   );
-  const [transitionEnabled, setTransitionEnabled] = useState(true);
 
   useControls(
     `Active Node (${activeNode ? activeNode.id : "None"})`,
@@ -44,9 +43,14 @@ export function Canvas({
           }
         },
       },
-      transition: {
-        value: true,
-        onChange: (v: boolean) => setTransitionEnabled(v),
+      scale: {
+        value: activeNode?.scale ?? 1,
+        step: 0.1,
+        onChange: (scale) => {
+          if (activeNode) {
+            updateNode({ ...activeNode, scale });
+          }
+        },
       },
     },
     [activeNode],
@@ -90,9 +94,9 @@ export function Canvas({
             backgroundColor: node.bgColor,
           }}
           transition={
-            transitionEnabled
-              ? { type: "spring", stiffness: 100, damping: 30 }
-              : { duration: 0 }
+            activeNode?.id === node.id
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 100, damping: 30 }
           }
           className={"text-black text-xs"}
           onClick={(e) => {

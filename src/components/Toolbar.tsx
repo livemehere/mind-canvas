@@ -21,7 +21,7 @@ const ACTIONS: Action[] = [
 
 interface Props {
   activeToolId: string | null;
-  setActiveToolId: React.Dispatch<React.SetStateAction<string | null>>;
+  setActiveToolId: React.Dispatch<React.SetStateAction<ToolId>>;
 }
 
 export function Toolbar({ activeToolId, setActiveToolId }: Props) {
