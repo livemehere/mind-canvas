@@ -252,6 +252,16 @@ Minimal Safe Defaults
   - text entranceAnimation: "pop"
   - edge entranceAnimation: "draw"
 
+Morphing vs Entrance Replay
+- If the goal is smooth morphing across steps, keep the same node/edge IDs across steps.
+- For morphing, set replayEntranceOnStepChange to false.
+- If replayEntranceOnStepChange is true, the current app treats that entity as a fresh entrance target on each step change, which breaks continuous morphing.
+- Use replayEntranceOnStepChange only when you intentionally want re-appearance, not morph continuity.
+- Good morphing candidates:
+  - persistent title node that changes text/position/scale/rotate over time
+  - persistent phase badge that changes color/label/location
+  - persistent detail card that updates body copy gradually
+
 Agent Prompting Template
 - System behavior for the JSON generator:
   - Convert user topic/instructions into a multi-step visual narrative.
