@@ -37,7 +37,7 @@ const getNodeBounds = (
   const y = node.position.y + (offset?.y ?? 0);
   const scale = Math.max(0.01, node.scale);
 
-  if (node.type === "rect") {
+  if (node.type === "box") {
     const centerX = x + node.size.width / 2;
     const centerY = y + node.size.height / 2;
     const halfWidth = (node.size.width * scale) / 2;

@@ -50,11 +50,11 @@ export const useGlobalPasteHandler = ({
         const selectedRectNode =
           activeNodeIds.length === 1
             ? nodes.find(
-                (node) => node.id === activeNodeIds[0] && node.type === "rect",
+                (node) => node.id === activeNodeIds[0] && node.type === "box",
               )
             : undefined;
 
-        if (selectedRectNode && selectedRectNode.type === "rect") {
+        if (selectedRectNode && selectedRectNode.type === "box") {
           commitNodesToStep(
             activeStep,
             nodes.map((node) =>

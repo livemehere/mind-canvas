@@ -1,12 +1,12 @@
 import { type CSSProperties } from "react";
 import {
+  type BoxNode,
   DEFAULT_BOX_SHADOW_STYLE,
   DEFAULT_TEXT_SHADOW_STYLE,
   type EntranceAnimation,
   type BoxShadowStyle,
   type CanvasNode,
   type NodeTransition,
-  type RectNode,
   type TextShadowStyle,
   type TextNode,
   type Typography,
@@ -200,7 +200,7 @@ export const getTextStyle = (node: TextNode): CSSProperties => ({
   boxSizing: "border-box",
 });
 
-export const getRectContentStyle = (node: RectNode): CSSProperties => ({
+export const getRectContentStyle = (node: BoxNode): CSSProperties => ({
   width: "100%",
   height: "100%",
   display: "flex",
@@ -214,7 +214,7 @@ export const getRectContentStyle = (node: RectNode): CSSProperties => ({
 
 export const getNodeStyle = (node: CanvasNode) => {
   switch (node.type) {
-    case "rect":
+    case "box":
       return {
         width: node.size.width,
         height: node.size.height,

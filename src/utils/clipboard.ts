@@ -1,4 +1,5 @@
 import {
+  normalizeCanvasNode,
   type CanvasEdge,
   type CanvasNode,
   DEFAULT_RECT_NODE,
@@ -43,7 +44,7 @@ export const parseNodesClipboard = (value: string): ClipboardCanvasData | null =
     }
 
     return {
-      nodes: payload.nodes as CanvasNode[],
+      nodes: (payload.nodes as CanvasNode[]).map((node) => normalizeCanvasNode(node)),
       edges: Array.isArray(payload.edges) ? (payload.edges as CanvasEdge[]) : [],
     };
   } catch {

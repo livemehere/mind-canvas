@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  type BoxNode,
   type CanvasEdge,
   type CanvasNode,
   type EdgeAnchor,
   type Position,
-  type RectNode,
   type TextNode,
 } from "../../core/nodes";
 import { CanvasNodeItem } from "./CanvasNodeItem";
@@ -484,15 +484,15 @@ export function CanvasSurface({
     );
   };
 
-  const updateRectNode = (
+  const updateBoxNode = (
     nodeId: string,
-    updater: (node: RectNode) => RectNode,
+    updater: (node: BoxNode) => BoxNode,
     options?: { commitHistory?: boolean },
   ) => {
     commitNodes(
       (currentNodes) =>
         currentNodes.map((currentNode) => {
-          if (currentNode.id !== nodeId || currentNode.type !== "rect") {
+          if (currentNode.id !== nodeId || currentNode.type !== "box") {
             return currentNode;
           }
 
@@ -1105,7 +1105,7 @@ export function CanvasSurface({
     : undefined;
 
   const getNodeCenterForHandle = (node: CanvasNode) => {
-    if (node.type === "rect") {
+    if (node.type === "box") {
       return {
         x: node.position.x + node.size.width / 2,
         y: node.position.y + node.size.height / 2,
@@ -1121,7 +1121,7 @@ export function CanvasSurface({
   const getNodePortPosition = (node: CanvasNode, anchor: EdgeAnchor): Position => {
     const scale = Math.max(0.01, node.scale);
 
-    if (node.type === "rect") {
+    if (node.type === "box") {
       const centerX = node.position.x + node.size.width / 2;
       const centerY = node.position.y + node.size.height / 2;
       const width = node.size.width * scale;
@@ -1320,7 +1320,7 @@ export function CanvasSurface({
                 : undefined
             }
             setNodeRef={setNodeRef}
-            onRectNodeChange={updateRectNode}
+            onRectNodeChange={updateBoxNode}
             onTextNodeChange={updateTextNode}
             onPointerDown={handleNodePointerDown}
             onDoubleClick={onNodeDoubleClick}

@@ -1,10 +1,10 @@
 import { folder, useControls } from "leva";
 import { useEffect, useRef } from "react";
 import {
+  type BoxNode,
   DEFAULT_BOX_SHADOW_STYLE,
   RECT_BACKGROUND_SIZE_OPTIONS,
   type RectBackgroundSize,
-  type RectNode,
 } from "../../core/nodes";
 import {
   MIXED_HINT,
@@ -28,7 +28,7 @@ import {
 export function RectSelectionControls({
   nodes,
   updateSelectedNodes,
-}: TypeSelectionControlsProps<RectNode>) {
+}: TypeSelectionControlsProps<BoxNode>) {
   const sessionsRef = useRef<Record<string, NumericEditSession>>({});
   const isEditingRef = useRef(0);
 
@@ -104,8 +104,8 @@ export function RectSelectionControls({
   const applyNumericChange = (
     key: string,
     nextValue: number,
-    getValue: (node: RectNode) => number,
-    setValue: (node: RectNode, value: number) => RectNode,
+    getValue: (node: BoxNode) => number,
+    setValue: (node: BoxNode, value: number) => BoxNode,
   ) => {
     const session = sessionsRef.current[key];
 
@@ -114,7 +114,7 @@ export function RectSelectionControls({
 
       updateSelectedNodes(
         (node) => {
-          if (node.type !== "rect") return node;
+          if (node.type !== "box") return node;
           const initialValue =
             session.initialValues.get(node.id) ?? getValue(node);
           return setValue(node, initialValue + delta);
@@ -125,18 +125,18 @@ export function RectSelectionControls({
     }
 
     updateSelectedNodes(
-      (node) => (node.type === "rect" ? setValue(node, nextValue) : node),
+      (node) => (node.type === "box" ? setValue(node, nextValue) : node),
       { commitHistory: false },
     );
   };
 
   const updateRectNodes = (
-    updater: (node: RectNode) => RectNode,
+    updater: (node: BoxNode) => BoxNode,
     context: LevaOnChangeContext,
   ) => {
     if (shouldIgnoreLevaChange(context)) return;
     updateSelectedNodes(
-      (node) => (node.type === "rect" ? updater(node) : node),
+      (node) => (node.type === "box" ? updater(node) : node),
       { commitHistory: false },
     );
   };
@@ -233,7 +233,7 @@ export function RectSelectionControls({
               if (shouldIgnoreLevaChange(context)) return;
               updateSelectedNodes(
                 (node) =>
-                  node.type === "rect"
+                  node.type === "box"
                     ? {
                         ...node,
                         backgroundSize: nextValue,
@@ -264,7 +264,7 @@ export function RectSelectionControls({
               if (shouldIgnoreLevaChange(context)) return;
               updateSelectedNodes(
                 (node) =>
-                  node.type === "rect"
+                  node.type === "box"
                     ? {
                         ...node,
                         boxShadow: {
@@ -454,7 +454,7 @@ export function RectSelectionControls({
               if (shouldIgnoreLevaChange(context)) return;
               updateSelectedNodes(
                 (node) =>
-                  node.type === "rect"
+                  node.type === "box"
                     ? {
                         ...node,
                         boxShadow: {
@@ -533,7 +533,7 @@ export function RectSelectionControls({
               if (shouldIgnoreLevaChange(context)) return;
               updateSelectedNodes(
                 (node) =>
-                  node.type === "rect" ? { ...node, content: nextValue } : node,
+                  node.type === "box" ? { ...node, content: nextValue } : node,
                 { commitHistory: false },
               );
             },
@@ -554,7 +554,7 @@ export function RectSelectionControls({
               if (shouldIgnoreLevaChange(context)) return;
               updateSelectedNodes(
                 (node) =>
-                  node.type === "rect"
+                  node.type === "box"
                     ? {
                         ...node,
                         contentTypography: {
@@ -569,7 +569,7 @@ export function RectSelectionControls({
           },
           typography: folder(
             {
-              ...createTypographyControls<RectNode>({
+              ...createTypographyControls<BoxNode>({
                 prefix: "rect.contentTypography",
                 typography,
                 startEdit,

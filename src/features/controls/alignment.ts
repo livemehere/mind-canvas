@@ -14,8 +14,8 @@ export interface Bounds {
 }
 
 export const getNodeBounds = (node: CanvasNode): Bounds => {
-  const width = node.type === "rect" ? node.size.width * node.scale : 0;
-  const height = node.type === "rect" ? node.size.height * node.scale : 0;
+  const width = node.type === "box" ? node.size.width * node.scale : 0;
+  const height = node.type === "box" ? node.size.height * node.scale : 0;
 
   if (node.type === "text") {
     return {

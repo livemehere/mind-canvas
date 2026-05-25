@@ -70,7 +70,7 @@ export interface RectContentTypography extends Typography {
 
 export interface BaseNode {
   id: string;
-  type: "rect" | "text";
+  type: "box" | "text";
   position: Position;
   opacity: number;
   scale: number;
@@ -85,8 +85,8 @@ export interface BaseNode {
   borderColor: string;
 }
 
-export interface RectNode extends BaseNode {
-  type: "rect";
+export interface BoxNode extends BaseNode {
+  type: "box";
   size: {
     width: number;
     height: number;
@@ -129,8 +129,22 @@ export interface CanvasEdge {
   replayEntranceOnStepChange: boolean;
 }
 
-export type CanvasNode = RectNode | TextNode;
+export type CanvasNode = BoxNode | TextNode;
 export type CanvasEntity = CanvasNode | CanvasEdge;
+
+export type RectNode = BoxNode;
+
+export const normalizeCanvasNode = (value: unknown): CanvasNode => {
+  const node = value as Record<string, unknown> | null;
+  if (node && typeof node === "object" && node.type === "rect") {
+    return {
+      ...node,
+      type: "box",
+    } as CanvasNode;
+  }
+
+  return value as CanvasNode;
+};
 
 export const DEFAULT_TEXT_SHADOW_STYLE: TextShadowStyle = {
   enabled: false,
@@ -149,9 +163,9 @@ export const DEFAULT_BOX_SHADOW_STYLE: BoxShadowStyle = {
   opacity: 0.22,
 };
 
-export const DEFAULT_RECT_NODE: RectNode = {
+export const DEFAULT_BOX_NODE: BoxNode = {
   id: "default-rect",
-  type: "rect",
+  type: "box",
   position: { x: 0, y: 0 },
   size: { width: 100, height: 100 },
   backgroundImage: undefined,
@@ -184,6 +198,8 @@ export const DEFAULT_RECT_NODE: RectNode = {
     strokeColor: "#000000",
   },
 };
+
+export const DEFAULT_RECT_NODE = DEFAULT_BOX_NODE;
 
 export const DEFAULT_TEXT_NODE: TextNode = {
   id: "default-text",

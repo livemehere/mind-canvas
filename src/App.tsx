@@ -137,7 +137,7 @@ export default function App() {
   };
 
   const handleNodeDoubleClick = (node: CanvasNode) => {
-    if (node.type === "rect") {
+    if (node.type === "box") {
       setActiveNodeIds([node.id]);
       setActiveEdgeIds([]);
       requestControlFocus("rect.content");
@@ -238,7 +238,7 @@ export default function App() {
       }
 
       const selectedNode = selectedNodes[0];
-      if (selectedNode.type === "rect") {
+      if (selectedNode.type === "box") {
         requestControlFocus("rect.content");
         return;
       }

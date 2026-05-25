@@ -1,7 +1,7 @@
 import {
+  type BoxNode,
   type CanvasEdge,
   type CanvasNode,
-  type RectNode,
   type TextNode,
 } from "../../core/nodes";
 import { AlignControls } from "./AlignControls";
@@ -38,7 +38,7 @@ export function SelectedNodeControls({
   onDetachLinkedNodes,
 }: Props) {
   const rectNodes = nodes.filter(
-    (node): node is RectNode => node.type === "rect",
+    (node): node is BoxNode => node.type === "box",
   );
   const textNodes = nodes.filter(
     (node): node is TextNode => node.type === "text",

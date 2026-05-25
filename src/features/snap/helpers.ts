@@ -109,7 +109,7 @@ export const buildDragSnapCache = ({
     .filter((bounds): bounds is SnapBounds => bounds !== null);
 
   const logicalAdditionalBounds = (additionalSnapNodes ?? []).map((node) => {
-    if (node.type === "rect") {
+    if (node.type === "box") {
       const width = node.size.width * node.scale;
       const height = node.size.height * node.scale;
 

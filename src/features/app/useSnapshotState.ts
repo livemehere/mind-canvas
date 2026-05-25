@@ -1,7 +1,12 @@
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
-import { type CanvasEdge, type CanvasNode, type Snapshot } from "../../core/nodes";
+import {
+  normalizeCanvasNode,
+  type CanvasEdge,
+  type CanvasNode,
+  type Snapshot,
+} from "../../core/nodes";
 import {
   applyChangedFieldPatch,
   getChangedEdgePatchMap,
@@ -280,7 +285,10 @@ export const useSnapshotState = () => {
     }
 
     const normalizedSnapshots = snapshots.map((snapshot) =>
-      createSnapshot(snapshot.nodes, snapshot.edges ?? []),
+      createSnapshot(
+        snapshot.nodes.map((node) => normalizeCanvasNode(node)),
+        snapshot.edges ?? [],
+      ),
     );
     const normalizedHistories = normalizedSnapshots.map((snapshot) =>
       createStepHistory(snapshot.nodes, snapshot.edges),

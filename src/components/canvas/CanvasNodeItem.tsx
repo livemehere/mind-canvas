@@ -1,8 +1,8 @@
 import { motion } from "motion/react";
 import { useRef, useState } from "react";
 import {
+  type BoxNode,
   type CanvasNode,
-  type RectNode,
   type TextNode,
 } from "../../core/nodes";
 import {
@@ -44,7 +44,7 @@ interface Props {
   setNodeRef: (nodeId: string, element: HTMLDivElement | null) => void;
   onRectNodeChange: (
     nodeId: string,
-    updater: (node: RectNode) => RectNode,
+    updater: (node: BoxNode) => BoxNode,
     options?: { commitHistory?: boolean },
   ) => void;
   onTextNodeChange: (
@@ -96,7 +96,7 @@ export function CanvasNodeItem({
   );
 
   const handleResizeStart = () => {
-    if (node.type !== "rect") {
+    if (node.type !== "box") {
       if (node.type === "text") {
         textSnapshotRef.current = createTextSnapshot(node);
       }
@@ -123,7 +123,7 @@ export function CanvasNodeItem({
       return;
     }
 
-    if (node.type !== "rect") {
+    if (node.type !== "box") {
       return;
     }
 
@@ -153,7 +153,7 @@ export function CanvasNodeItem({
       return;
     }
 
-    if (node.type === "rect") {
+    if (node.type === "box") {
       const snapshot = resizeSnapshotRef.current ?? createRectSnapshot(node);
 
       onRectNodeChange(node.id, (currentNode) =>
@@ -166,7 +166,7 @@ export function CanvasNodeItem({
   };
 
   const handleRotateStart = () => {
-    if (node.type !== "rect" && node.type !== "text") {
+    if (node.type !== "box" && node.type !== "text") {
       return;
     }
 
@@ -179,7 +179,7 @@ export function CanvasNodeItem({
     offset: { x: number; y: number },
     modifiers: RotateHandleModifiers,
   ) => {
-    if (node.type !== "rect" && node.type !== "text") {
+    if (node.type !== "box" && node.type !== "text") {
       return;
     }
 
@@ -195,7 +195,7 @@ export function CanvasNodeItem({
       ? rawRotate
       : roundNumber(Math.round(rawRotate / 15) * 15);
 
-    if (node.type === "rect") {
+    if (node.type === "box") {
       onRectNodeChange(
         node.id,
         (currentNode) => ({
@@ -221,7 +221,7 @@ export function CanvasNodeItem({
     offset: { x: number; y: number },
     modifiers: RotateHandleModifiers,
   ) => {
-    if (node.type !== "rect" && node.type !== "text") {
+    if (node.type !== "box" && node.type !== "text") {
       return;
     }
 
@@ -236,7 +236,7 @@ export function CanvasNodeItem({
       ? rawRotate
       : roundNumber(Math.round(rawRotate / 15) * 15);
 
-    if (node.type === "rect") {
+    if (node.type === "box") {
       onRectNodeChange(node.id, (currentNode) => ({
         ...currentNode,
         rotate: nextRotate,
@@ -363,7 +363,7 @@ export function CanvasNodeItem({
         canPanDragRef.current = false;
       }}
     >
-      {(node.type === "rect" || node.type === "text") &&
+      {(node.type === "box" || node.type === "text") &&
       isSelected &&
       canDrag ? (
         <CanvasNodeTransformHandles
@@ -377,7 +377,7 @@ export function CanvasNodeItem({
           resizeDirections={node.type === "text" ? ["w", "e"] : undefined}
         />
       ) : null}
-      {node.type === "rect" && node.content ? (
+      {node.type === "box" && node.content ? (
         <div style={getRectContentStyle(node)}>{node.content}</div>
       ) : null}
       {node.type === "text" ? (
