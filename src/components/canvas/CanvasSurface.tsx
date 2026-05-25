@@ -1119,11 +1119,15 @@ export function CanvasSurface({
   };
 
   const getNodePortPosition = (node: CanvasNode, anchor: EdgeAnchor): Position => {
+    const scale = Math.max(0.01, node.scale);
+
     if (node.type === "rect") {
-      const x = node.position.x;
-      const y = node.position.y;
-      const width = node.size.width;
-      const height = node.size.height;
+      const centerX = node.position.x + node.size.width / 2;
+      const centerY = node.position.y + node.size.height / 2;
+      const width = node.size.width * scale;
+      const height = node.size.height * scale;
+      const x = centerX - width / 2;
+      const y = centerY - height / 2;
       const cx = x + width / 2;
       const cy = y + height / 2;
 
@@ -1142,10 +1146,13 @@ export function CanvasSurface({
     }
 
     const center = getNodeCenterForHandle(node);
-    const halfWidth = Math.max(60, node.typography.fontSize * 1.25 + node.paddingX);
+    const halfWidth =
+      Math.max(60, node.typography.fontSize * 1.25 + node.paddingX) * scale;
     const halfHeight = Math.max(
       18,
-      (node.typography.fontSize * node.typography.lineHeight + node.paddingY * 2) / 2,
+      ((node.typography.fontSize * node.typography.lineHeight + node.paddingY * 2) /
+        2) *
+        scale,
     );
 
     switch (anchor) {

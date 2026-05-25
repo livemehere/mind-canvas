@@ -34,19 +34,27 @@ const getNodeBounds = (
 ): { left: number; right: number; top: number; bottom: number } => {
   const x = node.position.x + (offset?.x ?? 0);
   const y = node.position.y + (offset?.y ?? 0);
+  const scale = Math.max(0.01, node.scale);
 
   if (node.type === "rect") {
+    const centerX = x + node.size.width / 2;
+    const centerY = y + node.size.height / 2;
+    const halfWidth = (node.size.width * scale) / 2;
+    const halfHeight = (node.size.height * scale) / 2;
+
     return {
-      left: x,
-      right: x + node.size.width,
-      top: y,
-      bottom: y + node.size.height,
+      left: centerX - halfWidth,
+      right: centerX + halfWidth,
+      top: centerY - halfHeight,
+      bottom: centerY + halfHeight,
     };
   }
 
-  const width = Math.max(120, node.typography.fontSize * 2.5 + node.paddingX * 2);
+  const width =
+    Math.max(120, node.typography.fontSize * 2.5 + node.paddingX * 2) * scale;
   const height = Math.max(
-    node.typography.fontSize * node.typography.lineHeight + node.paddingY * 2,
+    (node.typography.fontSize * node.typography.lineHeight + node.paddingY * 2) *
+      scale,
     32,
   );
   return {
