@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  type CanvasEdge,
   type CanvasNode,
   type Position,
   type RectNode,
   type TextNode,
 } from "../../core/nodes";
 import { CanvasNodeItem } from "./CanvasNodeItem";
+import { CanvasEdgeLayer } from "./CanvasEdgeLayer";
 import {
   DRAG_THRESHOLD,
   getNormalizedBox,
@@ -29,6 +31,7 @@ import {
   type SnapGuide,
 } from "../../features/snap/helpers";
 import { NOOP } from "../../utils/noop";
+import { createEdge } from "../../features/nodes/helpers";
 
 export interface CanvasViewport {
   x: number;
@@ -52,12 +55,19 @@ const toCanvasViewportState = (
 
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
+  edges?: CanvasEdge[];
   setNodes?: (
     newNodes: CanvasNode[],
     options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => void;
+  setEdges?: (
+    newEdges: CanvasEdge[],
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
+  ) => void;
   activeNodeIds?: string[];
   setActiveNodeIds?: (ids: string[]) => void;
+  activeEdgeIds?: string[];
+  setActiveEdgeIds?: (ids: string[]) => void;
   activeToolId?: CanvasToolId;
   onClickBackground?: (position: Position) => void;
   viewOnly?: boolean;
@@ -65,6 +75,7 @@ export interface CanvasSurfaceProps {
   onNodeDoubleClick?: (node: CanvasNode) => void;
   canvasSize?: CanvasSize;
   entranceNodeIds?: string[];
+  entranceEdgeIds?: string[];
   linkedNodeIds?: string[];
   onDetachLinkedNodes?: () => void;
   additionalSnapNodes?: CanvasNode[];
@@ -88,6 +99,11 @@ export function CanvasSurface({
   onNodeDoubleClick = NOOP,
   canvasSize = { width: 800, height: 600 },
   entranceNodeIds = [],
+  entranceEdgeIds = [],
+  edges = [],
+  setEdges = NOOP,
+  activeEdgeIds = [],
+  setActiveEdgeIds = NOOP,
   linkedNodeIds = [],
   onDetachLinkedNodes = NOOP,
   additionalSnapNodes = [],
@@ -108,6 +124,7 @@ export function CanvasSurface({
   const nodesRef = useRef(nodes);
   const dragSnapCacheRef = useRef<DragSnapCache | null>(null);
   const dragNodeIdsRef = useRef<string[] | null>(null);
+  const pendingEdgeSourceNodeIdRef = useRef<string | null>(null);
   const dragAxisRef = useRef<"x" | "y" | null>(null);
   const panPointerIdRef = useRef<number | null>(null);
   const panStartClientRef = useRef<Position | null>(null);
@@ -117,8 +134,8 @@ export function CanvasSurface({
   const hasInitializedOriginRef = useRef(false);
   const previousResetTokenRef = useRef<number | undefined>(undefined);
   const [measuredCanvasSize, setMeasuredCanvasSize] = useState<CanvasSize>({
-    width: 0,
-    height: 0,
+    width: canvasSize.width,
+    height: canvasSize.height,
   });
   const [uncontrolledViewport, setUncontrolledViewport] =
     useState<CanvasViewport>({ x: 0, y: 0, scale: 1 });
@@ -135,6 +152,8 @@ export function CanvasSurface({
     guides?: SnapGuide;
   } | null>(null);
   const [entranceRun, setEntranceRun] = useState(0);
+  const [edgeEntranceRun, setEdgeEntranceRun] = useState(0);
+  const [edgeDraftTarget, setEdgeDraftTarget] = useState<Position | null>(null);
 
   useEffect(() => {
     if (entranceNodeIds.length === 0) {
@@ -144,6 +163,23 @@ export function CanvasSurface({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEntranceRun((prev) => prev + 1);
   }, [entranceNodeIds]);
+
+  useEffect(() => {
+    if (entranceEdgeIds.length === 0) {
+      return;
+    }
+
+    setEdgeEntranceRun((prev) => prev + 1);
+  }, [entranceEdgeIds]);
+
+  useEffect(() => {
+    if (activeToolId === "arrow") {
+      return;
+    }
+
+    pendingEdgeSourceNodeIdRef.current = null;
+    setEdgeDraftTarget(null);
+  }, [activeToolId]);
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => activeNodeIds.includes(node.id)),
@@ -213,6 +249,14 @@ export function CanvasSurface({
     const nextNodes = updater(nodesRef.current);
     nodesRef.current = nextNodes;
     setNodes(nextNodes, options);
+  };
+
+  const commitEdges = (
+    updater: (currentEdges: CanvasEdge[]) => CanvasEdge[],
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
+  ) => {
+    const nextEdges = updater(edges);
+    setEdges(nextEdges, options);
   };
 
   const updateViewport = (
@@ -410,6 +454,21 @@ export function CanvasSurface({
     );
   };
 
+  const updateSelectedEdges = (
+    updater: (edge: CanvasEdge) => CanvasEdge,
+    options?: UpdateSelectedNodesOptions,
+  ) => {
+    commitEdges(
+      (currentEdges) =>
+        currentEdges.map((currentEdge) =>
+          activeEdgeIds.includes(currentEdge.id)
+            ? updater(currentEdge)
+            : currentEdge,
+        ),
+      options,
+    );
+  };
+
   const updateRectNode = (
     nodeId: string,
     updater: (node: RectNode) => RectNode,
@@ -507,6 +566,7 @@ export function CanvasSurface({
       .map((node) => node.id);
 
     setActiveNodeIds(nextSelection);
+    setActiveEdgeIds([]);
   };
 
   const handleBackgroundPointerDown = (
@@ -543,6 +603,13 @@ export function CanvasSurface({
 
     if (activeToolId === "select") {
       setSelectionRect({ start: position, current: position });
+    } else if (activeToolId === "arrow") {
+      if (pendingEdgeSourceNodeIdRef.current) {
+        setEdgeDraftTarget(position);
+      } else {
+        setActiveNodeIds([]);
+        setActiveEdgeIds([]);
+      }
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -570,7 +637,17 @@ export function CanvasSurface({
       return;
     }
 
-    if (!pointerStartRef.current || activeToolId !== "select") {
+    if (!pointerStartRef.current) {
+      return;
+    }
+
+    if (activeToolId === "arrow" && pendingEdgeSourceNodeIdRef.current) {
+      const position = getCanvasPosition(event);
+      setEdgeDraftTarget(position);
+      return;
+    }
+
+    if (activeToolId !== "select") {
       return;
     }
 
@@ -609,6 +686,12 @@ export function CanvasSurface({
       } else {
         selectNodesInBox(getNormalizedBox(start, end));
       }
+    } else if (activeToolId === "arrow") {
+      if (!pendingEdgeSourceNodeIdRef.current) {
+        setActiveNodeIds([]);
+        setActiveEdgeIds([]);
+      }
+      setEdgeDraftTarget(pendingEdgeSourceNodeIdRef.current ? end : null);
     } else if (distance < DRAG_THRESHOLD) {
       onClickBackground(end);
     }
@@ -683,6 +766,7 @@ export function CanvasSurface({
         ? activeNodeIds.filter((id) => id !== nodeId)
         : [...activeNodeIds, nodeId],
     );
+    setActiveEdgeIds([]);
   };
 
   const handleNodePointerDown = (
@@ -697,16 +781,67 @@ export function CanvasSurface({
       return;
     }
 
+    if (activeToolId === "arrow") {
+      event.stopPropagation();
+
+      const sourceNodeId = pendingEdgeSourceNodeIdRef.current;
+      if (!sourceNodeId) {
+        pendingEdgeSourceNodeIdRef.current = node.id;
+        setActiveNodeIds([node.id]);
+        setActiveEdgeIds([]);
+        return;
+      }
+
+      if (sourceNodeId === node.id) {
+        pendingEdgeSourceNodeIdRef.current = null;
+        setEdgeDraftTarget(null);
+        return;
+      }
+
+      const nextEdge = createEdge(sourceNodeId, node.id);
+      commitEdges((currentEdges) => [...currentEdges, nextEdge]);
+      pendingEdgeSourceNodeIdRef.current = null;
+      setEdgeDraftTarget(null);
+      setActiveNodeIds([]);
+      setActiveEdgeIds([nextEdge.id]);
+      return;
+    }
+
     event.stopPropagation();
 
     if (event.shiftKey || event.metaKey || event.ctrlKey) {
       toggleNodeSelection(node.id);
+      setActiveEdgeIds([]);
       return;
     }
 
     if (!activeNodeIds.includes(node.id)) {
       setActiveNodeIds([node.id]);
+      setActiveEdgeIds([]);
     }
+  };
+
+  const handleEdgePointerDown = (
+    event: React.PointerEvent<SVGPathElement>,
+    edge: CanvasEdge,
+  ) => {
+    if (viewOnly || activeToolId !== "select") {
+      return;
+    }
+
+    event.stopPropagation();
+
+    if (event.shiftKey || event.metaKey || event.ctrlKey) {
+      setActiveEdgeIds(
+        activeEdgeIds.includes(edge.id)
+          ? activeEdgeIds.filter((id) => id !== edge.id)
+          : [...activeEdgeIds, edge.id],
+      );
+      return;
+    }
+
+    setActiveNodeIds([]);
+    setActiveEdgeIds([edge.id]);
   };
 
   const handleNodeDragEnd = (
@@ -861,6 +996,12 @@ export function CanvasSurface({
     });
   };
 
+  const previewOffsetByNodeId = dragPreview
+    ? Object.fromEntries(
+        dragPreview.nodeIds.map((nodeId) => [nodeId, dragPreview.offset]),
+      )
+    : undefined;
+
   return (
     <div
       ref={containerRef}
@@ -882,7 +1023,9 @@ export function CanvasSurface({
       {showControls ? (
         <SelectedNodeControls
           nodes={selectedNodes}
+          edges={edges.filter((edge) => activeEdgeIds.includes(edge.id))}
           updateSelectedNodes={updateSelectedNodes}
+          updateSelectedEdges={updateSelectedEdges}
           canvasSize={measuredCanvasSize}
           viewport={toCanvasViewportState(viewport)}
           linkedNodeIds={linkedNodeIds}
@@ -898,6 +1041,16 @@ export function CanvasSurface({
           willChange: "transform",
         }}
       >
+        <CanvasEdgeLayer
+          nodes={nodes}
+          edges={edges}
+          activeEdgeIds={activeEdgeIds}
+          previewOffsetByNodeId={previewOffsetByNodeId}
+          isPreviewing={dragPreview !== null}
+          entranceEdgeIds={entranceEdgeIds}
+          entranceRun={edgeEntranceRun}
+          onEdgePointerDown={handleEdgePointerDown}
+        />
         {nodes.map((node) => (
           <CanvasNodeItem
             key={
@@ -925,6 +1078,45 @@ export function CanvasSurface({
             onDragEnd={handleNodeDragEnd}
           />
         ))}
+        {activeToolId === "arrow" &&
+        pendingEdgeSourceNodeIdRef.current &&
+        edgeDraftTarget ? (
+          <svg
+            className="pointer-events-none absolute inset-0 overflow-visible"
+            width="100%"
+            height="100%"
+          >
+            {(() => {
+              const sourceNode = nodes.find(
+                (node) => node.id === pendingEdgeSourceNodeIdRef.current,
+              );
+              if (!sourceNode) {
+                return null;
+              }
+
+              const sourcePoint =
+                sourceNode.type === "rect"
+                  ? {
+                      x: sourceNode.position.x + sourceNode.size.width / 2,
+                      y: sourceNode.position.y + sourceNode.size.height / 2,
+                    }
+                  : {
+                      x: sourceNode.position.x,
+                      y: sourceNode.position.y,
+                    };
+
+              return (
+                <path
+                  d={`M ${sourcePoint.x} ${sourcePoint.y} L ${edgeDraftTarget.x} ${edgeDraftTarget.y}`}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.7)"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                />
+              );
+            })()}
+          </svg>
+        ) : null}
         {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
       </div>
       {dragPreview?.guides?.x !== undefined ? (

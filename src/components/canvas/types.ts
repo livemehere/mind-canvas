@@ -1,1 +1,1 @@
-export type CanvasToolId = "select" | "rect" | "text";
+export type CanvasToolId = "select" | "rect" | "text" | "arrow";

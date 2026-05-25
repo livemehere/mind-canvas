@@ -1,4 +1,9 @@
-import { type CanvasNode, DEFAULT_RECT_NODE, type RectNode } from "../core/nodes";
+import {
+  type CanvasEdge,
+  type CanvasNode,
+  DEFAULT_RECT_NODE,
+  type RectNode,
+} from "../core/nodes";
 
 const APP_CLIPBOARD_MIME = "application/x-mind-canvas-nodes";
 
@@ -6,16 +11,26 @@ interface NodesClipboardPayload {
   version: 1;
   type: "nodes";
   nodes: CanvasNode[];
+  edges?: CanvasEdge[];
 }
 
-export const serializeNodesClipboard = (nodes: CanvasNode[]) =>
+export interface ClipboardCanvasData {
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
+}
+
+export const serializeNodesClipboard = (
+  nodes: CanvasNode[],
+  edges: CanvasEdge[] = [],
+) =>
   JSON.stringify({
     version: 1,
     type: "nodes",
     nodes,
+    edges,
   } satisfies NodesClipboardPayload);
 
-export const parseNodesClipboard = (value: string): CanvasNode[] | null => {
+export const parseNodesClipboard = (value: string): ClipboardCanvasData | null => {
   try {
     const payload = JSON.parse(value) as Partial<NodesClipboardPayload>;
 
@@ -27,14 +42,20 @@ export const parseNodesClipboard = (value: string): CanvasNode[] | null => {
       return null;
     }
 
-    return payload.nodes as CanvasNode[];
+    return {
+      nodes: payload.nodes as CanvasNode[],
+      edges: Array.isArray(payload.edges) ? (payload.edges as CanvasEdge[]) : [],
+    };
   } catch {
     return null;
   }
 };
 
-export const writeNodesToClipboard = async (nodes: CanvasNode[]) => {
-  const serialized = serializeNodesClipboard(nodes);
+export const writeNodesToClipboard = async (
+  nodes: CanvasNode[],
+  edges: CanvasEdge[] = [],
+) => {
+  const serialized = serializeNodesClipboard(nodes, edges);
 
   await navigator.clipboard.writeText(serialized);
 

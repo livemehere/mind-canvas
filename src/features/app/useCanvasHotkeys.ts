@@ -15,6 +15,7 @@ import {
   HOTKEY_REMOVE_SNAPSHOT,
   HOTKEY_RESET_VIEWPORT_TO_ORIGIN,
   HOTKEY_SAVE_SNAPSHOTS,
+  HOTKEY_ARROW_TOOL,
   HOTKEY_SELECT_CURSOR,
   HOTKEY_TEXT_TOOL,
   HOTKEY_TOGGLE_HISTORY_OVERLAY,
@@ -27,6 +28,7 @@ interface UseCanvasHotkeysOptions {
   onSelectTool: () => void;
   onRectTool: () => void;
   onTextTool: () => void;
+  onArrowTool: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onCopy: () => void;
@@ -50,6 +52,7 @@ export const useCanvasHotkeys = ({
   onSelectTool,
   onRectTool,
   onTextTool,
+  onArrowTool,
   onUndo,
   onRedo,
   onCopy,
@@ -71,6 +74,7 @@ export const useCanvasHotkeys = ({
   useHotkeys(HOTKEY_SELECT_CURSOR, oncePerKeypress(onSelectTool));
   useHotkeys(HOTKEY_RECT_TOOL, oncePerKeypress(onRectTool));
   useHotkeys(HOTKEY_TEXT_TOOL, oncePerKeypress(onTextTool));
+  useHotkeys(HOTKEY_ARROW_TOOL, oncePerKeypress(onArrowTool));
   useHotkeys(
     HOTKEY_UNDO,
     oncePerKeypress(onUndo, { preventDefault: true }),

@@ -1,6 +1,7 @@
 export const HOTKEY_SELECT_CURSOR = "q";
 export const HOTKEY_RECT_TOOL = "w";
 export const HOTKEY_TEXT_TOOL = "e";
+export const HOTKEY_ARROW_TOOL = "r";
 
 export const HOTKEY_UNDO = "meta+z,ctrl+z";
 export const HOTKEY_REDO = "meta+shift+z,ctrl+shift+z";

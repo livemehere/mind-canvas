@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { type CanvasNode } from "../../core/nodes";
 import {
   type LevaOnChangeContext,
   type NumericEditSession,
@@ -38,7 +37,7 @@ const isTextEditingElement = () => {
   );
 };
 
-export const startNumericEditSession = <TNode extends CanvasNode>(
+export const startNumericEditSession = <TNode extends { id: string }>(
   sessions: React.RefObject<Record<string, NumericEditSession>>,
   key: string,
   nodes: TNode[],

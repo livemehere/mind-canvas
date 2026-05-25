@@ -1,4 +1,9 @@
-import { type CanvasNode, type Position, type Snapshot } from "../../core/nodes";
+import {
+  type CanvasEdge,
+  type CanvasNode,
+  type Position,
+  type Snapshot,
+} from "../../core/nodes";
 
 export interface StepHistory {
   snapshots: Snapshot[];
@@ -14,21 +19,32 @@ export interface CommitNodesOptions {
 const NO_FIELD_CHANGE = Symbol("NO_FIELD_CHANGE");
 
 export const cloneNodes = (nodes: CanvasNode[]) => structuredClone(nodes);
+export const cloneEdges = (edges: CanvasEdge[]) => structuredClone(edges);
 
-export const createSnapshot = (nodes: CanvasNode[]): Snapshot => ({
+export const createSnapshot = (
+  nodes: CanvasNode[],
+  edges: CanvasEdge[] = [],
+): Snapshot => ({
   nodes: cloneNodes(nodes),
+  edges: cloneEdges(edges),
 });
 
-export const createStepHistory = (nodes: CanvasNode[]): StepHistory => ({
-  snapshots: [createSnapshot(nodes)],
+export const createStepHistory = (
+  nodes: CanvasNode[],
+  edges: CanvasEdge[] = [],
+): StepHistory => ({
+  snapshots: [createSnapshot(nodes, edges)],
   index: 0,
 });
 
-export const nodesEqual = (a: CanvasNode[], b: CanvasNode[]) =>
+export const nodesEqual = <T,>(a: T[], b: T[]) =>
   JSON.stringify(a) === JSON.stringify(b);
 
 export const getStepOverlayNodes = (snapshots: Snapshot[], step: number) =>
   step > 0 ? snapshots[step - 1].nodes : [];
+
+export const getStepOverlayEdges = (snapshots: Snapshot[], step: number) =>
+  step > 0 ? snapshots[step - 1].edges : [];
 
 export const getEnteringNodeIds = (
   previousNodes: CanvasNode[],
@@ -42,6 +58,20 @@ export const getEnteringNodeIds = (
         node.replayEntranceOnStepChange || !previousNodeIds.has(node.id),
     )
     .map((node) => node.id);
+};
+
+export const getEnteringEdgeIds = (
+  previousEdges: CanvasEdge[],
+  nextEdges: CanvasEdge[],
+) => {
+  const previousEdgeIds = new Set(previousEdges.map((edge) => edge.id));
+
+  return nextEdges
+    .filter(
+      (edge) =>
+        edge.replayEntranceOnStepChange || !previousEdgeIds.has(edge.id),
+    )
+    .map((edge) => edge.id);
 };
 
 export const offsetNodes = (nodes: CanvasNode[], offset: Position) =>
@@ -127,4 +157,30 @@ export const getChangedNodePatchMap = (
   });
 
   return changedNodePatchMap;
+};
+
+export const getChangedEdgePatchMap = (
+  baselineEdges: CanvasEdge[],
+  nextEdges: CanvasEdge[],
+) => {
+  const baselineEdgeMap = new Map(
+    baselineEdges.map((edge) => [edge.id, edge] as const),
+  );
+  const changedEdgePatchMap = new Map<string, unknown>();
+
+  nextEdges.forEach((edge) => {
+    const baselineEdge = baselineEdgeMap.get(edge.id);
+    if (!baselineEdge) {
+      return;
+    }
+
+    const patch = createChangedFieldPatch(baselineEdge, edge);
+    if (patch === NO_FIELD_CHANGE) {
+      return;
+    }
+
+    changedEdgePatchMap.set(edge.id, patch);
+  });
+
+  return changedEdgePatchMap;
 };

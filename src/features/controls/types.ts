@@ -1,4 +1,4 @@
-import { type CanvasNode } from "../../core/nodes";
+import { type CanvasEdge, type CanvasNode } from "../../core/nodes";
 
 export interface LevaOnChangeContext {
   initial?: boolean;
@@ -27,9 +27,19 @@ export type UpdateSelectedNodes = (
   options?: UpdateSelectedNodesOptions,
 ) => void;
 
+export type UpdateSelectedEdges = (
+  updater: (edge: CanvasEdge) => CanvasEdge,
+  options?: UpdateSelectedNodesOptions,
+) => void;
+
 export interface SelectionControlsBaseProps {
   nodes: CanvasNode[];
   updateSelectedNodes: UpdateSelectedNodes;
+}
+
+export interface EdgeSelectionControlsProps {
+  edges: CanvasEdge[];
+  updateSelectedEdges: UpdateSelectedEdges;
 }
 
 export interface BaseSelectionControlsProps extends SelectionControlsBaseProps {

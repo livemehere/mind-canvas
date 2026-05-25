@@ -9,7 +9,12 @@ import {
 } from "./components/canvas/CanvasSurface";
 import { CanvasToolbar } from "./components/canvas/CanvasToolbar";
 import { type CanvasToolId } from "./components/canvas/types";
-import { type CanvasNode, type Position, type Snapshot } from "./core/nodes";
+import {
+  type CanvasEdge,
+  type CanvasNode,
+  type Position,
+  type Snapshot,
+} from "./core/nodes";
 import {
   installLevaTextareaEnterBehavior,
   requestControlFocus,
@@ -39,6 +44,7 @@ import {
   HOTKEY_REMOVE_SNAPSHOT,
   HOTKEY_RESET_VIEWPORT_TO_ORIGIN,
   HOTKEY_SAVE_SNAPSHOTS,
+  HOTKEY_ARROW_TOOL,
   HOTKEY_SELECT_CURSOR,
   HOTKEY_TEXT_TOOL,
   HOTKEY_TOGGLE_HISTORY_OVERLAY,
@@ -126,14 +132,21 @@ export default function App() {
     setShowPreviousOverlay,
     activeNodeIds,
     setActiveNodeIds,
+    activeEdgeIds,
+    setActiveEdgeIds,
     stepEntranceNodeIds,
+    stepEntranceEdgeIds,
     latestStateRef,
     snapShotLength,
     currentNodes,
+    currentEdges,
     previousNodes,
+    previousEdges,
     commitNodesToStep,
     setCurrentSnapShotNodes,
+    setCurrentSnapShotEdges,
     removeNodes,
+    removeEdges,
     goToStep,
     goToNextStep,
     removeCurrentStep,
@@ -147,13 +160,13 @@ export default function App() {
 
   const createRect = (x: number, y: number) => {
     const node = createRectNode(x, y);
-    setCurrentSnapShotNodes([...currentNodes, node]);
+    setCurrentSnapShotNodes([...currentNodes, node], currentEdges);
     return node.id;
   };
 
   const createText = (x: number, y: number) => {
     const node = createTextNode(x, y);
-    setCurrentSnapShotNodes([...currentNodes, node]);
+    setCurrentSnapShotNodes([...currentNodes, node], currentEdges);
     return node.id;
   };
 
@@ -161,12 +174,14 @@ export default function App() {
     switch (activeToolId) {
       case "select":
         setActiveNodeIds([]);
+        setActiveEdgeIds([]);
         break;
       case "rect": {
         const id = createRect(position.x, position.y);
         setActiveNodeIds([id]);
         requestControlFocus("rect.content");
         setActiveToolId("select");
+        setActiveEdgeIds([]);
         break;
       }
       case "text": {
@@ -174,6 +189,12 @@ export default function App() {
         setActiveNodeIds([id]);
         requestControlFocus("text.text");
         setActiveToolId("select");
+        setActiveEdgeIds([]);
+        break;
+      }
+      case "arrow": {
+        setActiveNodeIds([]);
+        setActiveEdgeIds([]);
         break;
       }
     }
@@ -182,12 +203,14 @@ export default function App() {
   const handleNodeDoubleClick = (node: CanvasNode) => {
     if (node.type === "rect") {
       setActiveNodeIds([node.id]);
+      setActiveEdgeIds([]);
       requestControlFocus("rect.content");
       return;
     }
 
     if (node.type === "text") {
       setActiveNodeIds([node.id]);
+      setActiveEdgeIds([]);
       requestControlFocus("text.text");
     }
   };
@@ -195,6 +218,10 @@ export default function App() {
   const selectedNodes = useMemo(
     () => currentNodes.filter((node) => activeNodeIds.includes(node.id)),
     [activeNodeIds, currentNodes],
+  );
+  const selectedEdges = useMemo(
+    () => currentEdges.filter((edge) => activeEdgeIds.includes(edge.id)),
+    [activeEdgeIds, currentEdges],
   );
 
   const linkedNodeIds = useMemo(() => {
@@ -217,17 +244,30 @@ export default function App() {
   }, [activeNodeIds, currentNodes, snapShot, step]);
 
   const copySelectedNodes = async () => {
-    if (selectedNodes.length === 0) {
+    if (selectedNodes.length === 0 && selectedEdges.length === 0) {
       return false;
     }
 
-    await writeNodesToClipboard(selectedNodes);
-    toast.success("Copied nodes");
+    const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id));
+    const internalEdges = currentEdges.filter(
+      (edge) =>
+        selectedNodeIdSet.has(edge.sourceNodeId) &&
+        selectedNodeIdSet.has(edge.targetNodeId),
+    );
+    const mergedEdges = [
+      ...internalEdges,
+      ...selectedEdges.filter(
+        (edge) => !internalEdges.some((internalEdge) => internalEdge.id === edge.id),
+      ),
+    ];
+
+    await writeNodesToClipboard(selectedNodes, mergedEdges);
+    toast.success("Copied selection");
     return true;
   };
 
   const cutSelectedNodes = async () => {
-    if (selectedNodes.length === 0) {
+    if (selectedNodes.length === 0 && selectedEdges.length === 0) {
       return;
     }
 
@@ -236,25 +276,54 @@ export default function App() {
       return;
     }
 
-    removeNodes(selectedNodes.map((node) => node.id));
+    if (selectedNodes.length > 0) {
+      removeNodes(selectedNodes.map((node) => node.id));
+    }
+    if (selectedEdges.length > 0) {
+      removeEdges(selectedEdges.map((edge) => edge.id));
+    }
     setActiveNodeIds([]);
-    toast.success("Cut nodes");
+    setActiveEdgeIds([]);
+    toast.success("Cut selection");
   };
 
   const pasteClipboardNodes = async () => {
     const clipboardNodes = await readNodesFromClipboard();
 
-    if (!clipboardNodes || clipboardNodes.length === 0) {
+    if (!clipboardNodes || clipboardNodes.nodes.length === 0) {
       return false;
     }
 
-    const pastedNodes = offsetNodes(regenerateNodeIds(clipboardNodes), {
+    const pastedNodes = offsetNodes(regenerateNodeIds(clipboardNodes.nodes), {
       x: 24,
       y: 24,
     });
-    setCurrentSnapShotNodes([...currentNodes, ...pastedNodes]);
+    const nodeIdMap = new Map<string, string>();
+    clipboardNodes.nodes.forEach((node, index) => {
+      nodeIdMap.set(node.id, pastedNodes[index].id);
+    });
+    const pastedEdges: CanvasEdge[] = [];
+    clipboardNodes.edges.forEach((edge) => {
+      const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
+      const targetNodeId = nodeIdMap.get(edge.targetNodeId);
+      if (!sourceNodeId || !targetNodeId) {
+        return;
+      }
+
+      pastedEdges.push({
+        ...edge,
+        id: window.crypto.randomUUID(),
+        sourceNodeId,
+        targetNodeId,
+      });
+    });
+    setCurrentSnapShotNodes(
+      [...currentNodes, ...pastedNodes],
+      [...currentEdges, ...pastedEdges],
+    );
     setActiveNodeIds(pastedNodes.map((node) => node.id));
-    toast.success("Pasted nodes");
+    setActiveEdgeIds(pastedEdges.map((edge) => edge.id));
+    toast.success("Pasted selection");
     return true;
   };
 
@@ -268,8 +337,30 @@ export default function App() {
       y: 24,
     });
 
-    setCurrentSnapShotNodes([...currentNodes, ...duplicatedNodes]);
+    const sourceNodeIdSet = new Set(selectedNodes.map((node) => node.id));
+    const nodeIdMap = new Map<string, string>();
+    selectedNodes.forEach((node, index) => {
+      nodeIdMap.set(node.id, duplicatedNodes[index].id);
+    });
+    const duplicatedEdges = currentEdges
+      .filter(
+        (edge) =>
+          sourceNodeIdSet.has(edge.sourceNodeId) &&
+          sourceNodeIdSet.has(edge.targetNodeId),
+      )
+      .map((edge) => ({
+        ...edge,
+        id: window.crypto.randomUUID(),
+        sourceNodeId: nodeIdMap.get(edge.sourceNodeId) ?? edge.sourceNodeId,
+        targetNodeId: nodeIdMap.get(edge.targetNodeId) ?? edge.targetNodeId,
+      }));
+
+    setCurrentSnapShotNodes(
+      [...currentNodes, ...duplicatedNodes],
+      [...currentEdges, ...duplicatedEdges],
+    );
     setActiveNodeIds(duplicatedNodes.map((node) => node.id));
+    setActiveEdgeIds(duplicatedEdges.map((edge) => edge.id));
     toast.success("Duplicated nodes");
   };
 
@@ -285,8 +376,7 @@ export default function App() {
       ),
     );
 
-    setCurrentSnapShotNodes(
-      currentNodes.map((node) => {
+    const nextNodes = currentNodes.map((node) => {
         const detachedNodeId = detachedNodeIdMap.get(node.id);
         if (!detachedNodeId) {
           return node;
@@ -296,8 +386,13 @@ export default function App() {
           ...node,
           id: detachedNodeId,
         };
-      }),
-    );
+      });
+    const nextEdges = currentEdges.map((edge) => ({
+      ...edge,
+      sourceNodeId: detachedNodeIdMap.get(edge.sourceNodeId) ?? edge.sourceNodeId,
+      targetNodeId: detachedNodeIdMap.get(edge.targetNodeId) ?? edge.targetNodeId,
+    }));
+    setCurrentSnapShotNodes(nextNodes, nextEdges);
     setActiveNodeIds(
       activeNodeIds.map((nodeId) => detachedNodeIdMap.get(nodeId) ?? nodeId),
     );
@@ -433,6 +528,7 @@ export default function App() {
     onSelectTool: () => setActiveToolId("select"),
     onRectTool: () => setActiveToolId("rect"),
     onTextTool: () => setActiveToolId("text"),
+    onArrowTool: () => setActiveToolId("arrow"),
     onUndo: undo,
     onRedo: redo,
     onCopy: () => void copySelectedNodes(),
@@ -461,15 +557,22 @@ export default function App() {
       }
 
       setActiveNodeIds([]);
+      setActiveEdgeIds([]);
       setActiveToolId("select");
     },
     onBackspace: () => {
-      if (activeNodeIds.length === 0) {
+      if (activeNodeIds.length === 0 && activeEdgeIds.length === 0) {
         return;
       }
 
-      removeNodes(activeNodeIds);
+      if (activeNodeIds.length > 0) {
+        removeNodes(activeNodeIds);
+      }
+      if (activeEdgeIds.length > 0) {
+        removeEdges(activeEdgeIds);
+      }
       setActiveNodeIds([]);
+      setActiveEdgeIds([]);
     },
     onRemoveSnapshot: removeCurrentStep,
     onSave: saveSnapshotsToLocalStorage,
@@ -489,8 +592,8 @@ export default function App() {
   });
 
   useGlobalPasteHandler({
-    commitNodesToStep: (targetStep, nodes) => {
-      commitNodesToStep(targetStep, nodes);
+    commitNodesToStep: (targetStep, nodes, edges) => {
+      commitNodesToStep(targetStep, nodes, edges);
     },
     pasteClipboardNodes,
     getLatestState: () => latestStateRef.current,
@@ -583,6 +686,10 @@ export default function App() {
                 <div className="font-mono text-white/90">
                   {HOTKEY_TEXT_TOOL}
                 </div>
+                <div className="text-white/70">Arrow tool</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_ARROW_TOOL}
+                </div>
                 <div className="text-white/70">Toggle history overlay</div>
                 <div className="font-mono text-white/90">
                   {HOTKEY_TOGGLE_HISTORY_OVERLAY}
@@ -646,10 +753,13 @@ export default function App() {
           {step > 0 && showPreviousOverlay && !isPresentationMode ? (
             <CanvasSurface
               nodes={previousNodes}
+              edges={previousEdges}
               viewOnly
               showControls={false}
               activeNodeIds={[]}
+              activeEdgeIds={[]}
               entranceNodeIds={[]}
+              entranceEdgeIds={[]}
               linkedNodeIds={[]}
               viewport={viewport}
               showOriginAxes={false}
@@ -660,11 +770,18 @@ export default function App() {
         <div className="relative h-full overflow-hidden">
           <CanvasSurface
             nodes={currentNodes}
-            setNodes={setCurrentSnapShotNodes}
+            edges={currentEdges}
+            setNodes={(nextNodes, options) =>
+              setCurrentSnapShotNodes(nextNodes, currentEdges, options)
+            }
+            setEdges={setCurrentSnapShotEdges}
             activeNodeIds={activeNodeIds}
             setActiveNodeIds={setActiveNodeIds}
+            activeEdgeIds={activeEdgeIds}
+            setActiveEdgeIds={setActiveEdgeIds}
             activeToolId={activeToolId}
             entranceNodeIds={stepEntranceNodeIds}
+            entranceEdgeIds={stepEntranceEdgeIds}
             linkedNodeIds={linkedNodeIds}
             onDetachLinkedNodes={detachLinkedSelectedNodes}
             onClickBackground={handleClickBackground}
@@ -761,7 +878,7 @@ export default function App() {
 
         {!isPresentationMode ? (
           <Leva
-            hidden={activeNodeIds.length === 0}
+            hidden={activeNodeIds.length === 0 && activeEdgeIds.length === 0}
             titleBar={{ position: { x: 0, y: 24 } }}
             theme={{
               sizes: {

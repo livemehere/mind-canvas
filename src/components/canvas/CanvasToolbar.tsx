@@ -1,4 +1,4 @@
-import { Eye, EyeOff, MousePointer2, Square, Type } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, MousePointer2, Square, Type } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { type CanvasToolId } from "./types";
 
@@ -19,6 +19,10 @@ const TOOL_ACTIONS: ToolAction[] = [
   {
     id: "text",
     icon: <Type size={18} />,
+  },
+  {
+    id: "arrow",
+    icon: <ArrowRight size={18} />,
   },
 ];
 

@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
-import { type CanvasNode, type Snapshot } from "../../core/nodes";
+import { type CanvasEdge, type CanvasNode, type Snapshot } from "../../core/nodes";
 import {
   applyChangedFieldPatch,
+  getChangedEdgePatchMap,
   cloneNodes,
+  cloneEdges,
+  getEnteringEdgeIds,
   createStepHistory,
   createSnapshot,
   getChangedNodePatchMap,
   getEnteringNodeIds,
+  getStepOverlayEdges,
   getStepOverlayNodes,
   nodesEqual,
   type CommitNodesOptions,
@@ -17,9 +21,11 @@ import {
 
 export const useSnapshotState = () => {
   const [step, setStep] = useState(0);
-  const [snapShot, setSnapShot] = useState<Snapshot[]>([{ nodes: [] }]);
+  const [snapShot, setSnapShot] = useState<Snapshot[]>([
+    { nodes: [], edges: [] },
+  ]);
   const [histories, setHistories] = useState<StepHistory[]>([
-    createStepHistory([]),
+    createStepHistory([], []),
   ]);
   const [autoAddSnapshotOnAdvance, setAutoAddSnapshotOnAdvance] =
     useState(true);
@@ -28,13 +34,16 @@ export const useSnapshotState = () => {
   const [syncMatchingIdEdits, setSyncMatchingIdEdits] = useState(false);
   const [showPreviousOverlay, setShowPreviousOverlay] = useState(true);
   const [activeNodeIds, setActiveNodeIds] = useState<string[]>([]);
+  const [activeEdgeIds, setActiveEdgeIds] = useState<string[]>([]);
   const [stepEntranceNodeIds, setStepEntranceNodeIds] = useState<string[]>([]);
+  const [stepEntranceEdgeIds, setStepEntranceEdgeIds] = useState<string[]>([]);
 
   const latestStateRef = useRef({
     step: 0,
-    snapShot: [{ nodes: [] }] as Snapshot[],
-    histories: [createStepHistory([])] as StepHistory[],
+    snapShot: [{ nodes: [], edges: [] }] as Snapshot[],
+    histories: [createStepHistory([], [])] as StepHistory[],
     activeNodeIds: [] as string[],
+    activeEdgeIds: [] as string[],
     autoAddSnapshotOnAdvance: true,
     duplicateNodesIntoNewSnapshot: true,
     syncMatchingIdEdits: false,
@@ -43,8 +52,11 @@ export const useSnapshotState = () => {
   const snapShotLength = snapShot.length;
   const currentSnapShot = snapShot[step];
   const currentNodes = currentSnapShot.nodes;
+  const currentEdges = currentSnapShot.edges;
   const previousNodes = getStepOverlayNodes(snapShot, step);
-  const currentHistory = histories[step] ?? createStepHistory(currentNodes);
+  const previousEdges = getStepOverlayEdges(snapShot, step);
+  const currentHistory =
+    histories[step] ?? createStepHistory(currentNodes, currentEdges);
 
   useEffect(() => {
     latestStateRef.current = {
@@ -52,6 +64,7 @@ export const useSnapshotState = () => {
       snapShot,
       histories,
       activeNodeIds,
+      activeEdgeIds,
       autoAddSnapshotOnAdvance,
       duplicateNodesIntoNewSnapshot,
       syncMatchingIdEdits,
@@ -61,6 +74,7 @@ export const useSnapshotState = () => {
     snapShot,
     histories,
     activeNodeIds,
+    activeEdgeIds,
     autoAddSnapshotOnAdvance,
     duplicateNodesIntoNewSnapshot,
     syncMatchingIdEdits,
@@ -69,6 +83,7 @@ export const useSnapshotState = () => {
   const commitNodesToStep = (
     targetStep: number,
     nodes: CanvasNode[],
+    edges?: CanvasEdge[],
     options?: CommitNodesOptions,
   ) => {
     const {
@@ -78,7 +93,8 @@ export const useSnapshotState = () => {
     } = latestStateRef.current;
 
     let nextSnapshots = [...previousSnapshots];
-    nextSnapshots[targetStep] = createSnapshot(nodes);
+    const targetEdges = edges ?? previousSnapshots[targetStep]?.edges ?? [];
+    nextSnapshots[targetStep] = createSnapshot(nodes, targetEdges);
     const affectedSteps = new Set([targetStep]);
 
     if (
@@ -89,14 +105,25 @@ export const useSnapshotState = () => {
     ) {
       const targetHistory =
         previousHistories[targetStep] ??
-        createStepHistory(previousSnapshots[targetStep]?.nodes ?? []);
+        createStepHistory(
+          previousSnapshots[targetStep]?.nodes ?? [],
+          previousSnapshots[targetStep]?.edges ?? [],
+        );
       const baselineNodes =
         targetHistory.snapshots[targetHistory.index]?.nodes ??
         previousSnapshots[targetStep]?.nodes ??
         [];
+      const baselineEdges =
+        targetHistory.snapshots[targetHistory.index]?.edges ??
+        previousSnapshots[targetStep]?.edges ??
+        [];
       const changedNodePatchMap = getChangedNodePatchMap(baselineNodes, nodes);
+      const changedEdgePatchMap = getChangedEdgePatchMap(
+        baselineEdges,
+        targetEdges,
+      );
 
-      if (changedNodePatchMap.size > 0) {
+      if (changedNodePatchMap.size > 0 || changedEdgePatchMap.size > 0) {
         nextSnapshots = nextSnapshots.map((snapshot, stepIndex) => {
           if (stepIndex === targetStep) {
             return snapshot;
@@ -112,13 +139,22 @@ export const useSnapshotState = () => {
             didChange = true;
             return applyChangedFieldPatch(node, changedNodePatch);
           });
+          const nextEdges = snapshot.edges.map((edge) => {
+            const changedEdgePatch = changedEdgePatchMap.get(edge.id);
+            if (!changedEdgePatch) {
+              return edge;
+            }
+
+            didChange = true;
+            return applyChangedFieldPatch(edge, changedEdgePatch);
+          });
 
           if (!didChange) {
             return snapshot;
           }
 
           affectedSteps.add(stepIndex);
-          return createSnapshot(nextNodes);
+          return createSnapshot(nextNodes, nextEdges);
         });
       }
     }
@@ -129,17 +165,20 @@ export const useSnapshotState = () => {
 
       affectedSteps.forEach((stepIndex) => {
         const stepNodes = nextSnapshots[stepIndex]?.nodes ?? [];
-        const stepHistory = nextHistories[stepIndex] ?? createStepHistory(stepNodes);
+        const stepEdges = nextSnapshots[stepIndex]?.edges ?? [];
+        const stepHistory =
+          nextHistories[stepIndex] ?? createStepHistory(stepNodes, stepEdges);
         const baseSnapshots = stepHistory.snapshots.slice(0, stepHistory.index + 1);
         const lastNodes = baseSnapshots.at(-1)?.nodes ?? [];
+        const lastEdges = baseSnapshots.at(-1)?.edges ?? [];
 
-        if (nodesEqual(lastNodes, stepNodes)) {
+        if (nodesEqual(lastNodes, stepNodes) && nodesEqual(lastEdges, stepEdges)) {
           nextHistories[stepIndex] = stepHistory;
           return;
         }
 
         nextHistories[stepIndex] = {
-          snapshots: [...baseSnapshots, createSnapshot(stepNodes)],
+          snapshots: [...baseSnapshots, createSnapshot(stepNodes, stepEdges)],
           index: baseSnapshots.length,
         };
       });
@@ -158,23 +197,46 @@ export const useSnapshotState = () => {
 
   const setCurrentSnapShotNodes = (
     nodes: CanvasNode[],
+    edges?: CanvasEdge[],
     options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
   ) => {
-    commitNodesToStep(step, nodes, options);
+    commitNodesToStep(step, nodes, edges, options);
   };
 
   const removeNodes = (nodeIds: string[]) => {
-    setCurrentSnapShotNodes(currentNodes.filter((node) => !nodeIds.includes(node.id)));
+    const nextNodes = currentNodes.filter((node) => !nodeIds.includes(node.id));
+    const nextEdges = currentEdges.filter(
+      (edge) =>
+        !nodeIds.includes(edge.sourceNodeId) && !nodeIds.includes(edge.targetNodeId),
+    );
+    setCurrentSnapShotNodes(nextNodes, nextEdges);
+  };
+
+  const setCurrentSnapShotEdges = (
+    edges: CanvasEdge[],
+    options?: { commitHistory?: boolean; syncMatchingIds?: boolean },
+  ) => {
+    commitNodesToStep(step, currentNodes, edges, options);
+  };
+
+  const removeEdges = (edgeIds: string[]) => {
+    setCurrentSnapShotEdges(
+      currentEdges.filter((edge) => !edgeIds.includes(edge.id)),
+    );
   };
 
   const goToStep = (nextStep: number, nextNodesOverride?: CanvasNode[]) => {
     const { step: currentStep, snapShot: snapshots } = latestStateRef.current;
     const previousStepNodes = snapshots[currentStep]?.nodes ?? [];
+    const previousStepEdges = snapshots[currentStep]?.edges ?? [];
     const nextNodes = nextNodesOverride ?? snapshots[nextStep]?.nodes ?? [];
+    const nextEdges = snapshots[nextStep]?.edges ?? [];
 
     setStepEntranceNodeIds(getEnteringNodeIds(previousStepNodes, nextNodes));
+    setStepEntranceEdgeIds(getEnteringEdgeIds(previousStepEdges, nextEdges));
     setStep(nextStep);
     setActiveNodeIds([]);
+    setActiveEdgeIds([]);
   };
 
   const goToNextStep = () => {
@@ -189,12 +251,15 @@ export const useSnapshotState = () => {
     }
 
     const nextNodes = duplicateNodesIntoNewSnapshot ? cloneNodes(currentNodes) : [];
+    const nextEdges = duplicateNodesIntoNewSnapshot ? cloneEdges(currentEdges) : [];
 
     flushSync(() => {
-      setSnapShot((prev) => [...prev, createSnapshot(nextNodes)]);
-      setHistories((prev) => [...prev, createStepHistory(nextNodes)]);
+      setSnapShot((prev) => [...prev, createSnapshot(nextNodes, nextEdges)]);
+      setHistories((prev) => [...prev, createStepHistory(nextNodes, nextEdges)]);
       setStepEntranceNodeIds(nextNodes.map((node) => node.id));
+      setStepEntranceEdgeIds(nextEdges.map((edge) => edge.id));
       setActiveNodeIds([]);
+      setActiveEdgeIds([]);
       setStep(snapShotLength);
     });
 
@@ -213,8 +278,10 @@ export const useSnapshotState = () => {
     setSnapShot((prev) => prev.filter((_, index) => index !== targetStep));
     setHistories((prev) => prev.filter((_, index) => index !== targetStep));
     setStepEntranceNodeIds([]);
+    setStepEntranceEdgeIds([]);
     setStep(nextStep);
     setActiveNodeIds([]);
+    setActiveEdgeIds([]);
     toast.success("Snapshot removed");
   };
 
@@ -224,10 +291,10 @@ export const useSnapshotState = () => {
     }
 
     const normalizedSnapshots = snapshots.map((snapshot) =>
-      createSnapshot(snapshot.nodes),
+      createSnapshot(snapshot.nodes, snapshot.edges ?? []),
     );
     const normalizedHistories = normalizedSnapshots.map((snapshot) =>
-      createStepHistory(snapshot.nodes),
+      createStepHistory(snapshot.nodes, snapshot.edges),
     );
     const safeStep = Math.max(
       0,
@@ -240,17 +307,20 @@ export const useSnapshotState = () => {
       snapShot: normalizedSnapshots,
       histories: normalizedHistories,
       activeNodeIds: [],
+      activeEdgeIds: [],
     };
     setSnapShot(normalizedSnapshots);
     setHistories(normalizedHistories);
     setStepEntranceNodeIds([]);
+    setStepEntranceEdgeIds([]);
     setActiveNodeIds([]);
+    setActiveEdgeIds([]);
     setStep(safeStep);
   };
 
   const clearSnapshots = () => {
-    const emptySnapshots = [createSnapshot([])];
-    const emptyHistories = [createStepHistory([])];
+    const emptySnapshots = [createSnapshot([], [])];
+    const emptyHistories = [createStepHistory([], [])];
 
     latestStateRef.current = {
       ...latestStateRef.current,
@@ -258,11 +328,14 @@ export const useSnapshotState = () => {
       snapShot: emptySnapshots,
       histories: emptyHistories,
       activeNodeIds: [],
+      activeEdgeIds: [],
     };
     setSnapShot(emptySnapshots);
     setHistories(emptyHistories);
     setStepEntranceNodeIds([]);
+    setStepEntranceEdgeIds([]);
     setActiveNodeIds([]);
+    setActiveEdgeIds([]);
     setStep(0);
   };
 
@@ -280,8 +353,9 @@ export const useSnapshotState = () => {
       next[step] = { ...currentHistory, index: nextIndex };
       return next;
     });
-    commitNodesToStep(step, snapshot.nodes, { skipHistory: true });
+    commitNodesToStep(step, snapshot.nodes, snapshot.edges, { skipHistory: true });
     setActiveNodeIds([]);
+    setActiveEdgeIds([]);
   };
 
   const redo = () => {
@@ -298,8 +372,9 @@ export const useSnapshotState = () => {
       next[step] = { ...currentHistory, index: nextIndex };
       return next;
     });
-    commitNodesToStep(step, snapshot.nodes, { skipHistory: true });
+    commitNodesToStep(step, snapshot.nodes, snapshot.edges, { skipHistory: true });
     setActiveNodeIds([]);
+    setActiveEdgeIds([]);
   };
 
   return {
@@ -318,14 +393,21 @@ export const useSnapshotState = () => {
     setShowPreviousOverlay,
     activeNodeIds,
     setActiveNodeIds,
+    activeEdgeIds,
+    setActiveEdgeIds,
     stepEntranceNodeIds,
+    stepEntranceEdgeIds,
     latestStateRef,
     snapShotLength,
     currentNodes,
+    currentEdges,
     previousNodes,
+    previousEdges,
     commitNodesToStep,
     setCurrentSnapShotNodes,
+    setCurrentSnapShotEdges,
     removeNodes,
+    removeEdges,
     goToStep,
     goToNextStep,
     removeCurrentStep,

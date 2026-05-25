@@ -17,12 +17,15 @@ export const ENTRANCE_ANIMATIONS = [
 export const TEXT_ALIGN_OPTIONS = ["left", "center", "right"] as const;
 export const FONT_STYLE_OPTIONS = ["normal", "italic"] as const;
 export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
+export const EDGE_ENTRANCE_ANIMATIONS = ["none", "fade", "draw"] as const;
 
 export type NodeTransition = (typeof NODE_TRANSITIONS)[number];
 export type EntranceAnimation = (typeof ENTRANCE_ANIMATIONS)[number];
 export type TextAlign = (typeof TEXT_ALIGN_OPTIONS)[number];
 export type FontStyle = (typeof FONT_STYLE_OPTIONS)[number];
 export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
+export type EdgeEntranceAnimation =
+  (typeof EDGE_ENTRANCE_ANIMATIONS)[number];
 
 export interface TextShadowStyle {
   enabled: boolean;
@@ -95,7 +98,30 @@ export interface TextNode extends BaseNode {
   typography: Typography;
 }
 
+export type EdgeAnchor = "auto" | "top" | "right" | "bottom" | "left";
+
+export interface CanvasEdge {
+  id: string;
+  type: "edge";
+  sourceNodeId: string;
+  targetNodeId: string;
+  sourceAnchor: EdgeAnchor;
+  targetAnchor: EdgeAnchor;
+  color: string;
+  width: number;
+  dashed: boolean;
+  arrowStart: boolean;
+  arrowEnd: boolean;
+  curve: number;
+  opacity: number;
+  zIndex: number;
+  transition: NodeTransition;
+  entranceAnimation: EdgeEntranceAnimation;
+  replayEntranceOnStepChange: boolean;
+}
+
 export type CanvasNode = RectNode | TextNode;
+export type CanvasEntity = CanvasNode | CanvasEdge;
 
 export const DEFAULT_TEXT_SHADOW_STYLE: TextShadowStyle = {
   enabled: false,
@@ -185,6 +211,27 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   },
 };
 
+export const DEFAULT_EDGE: CanvasEdge = {
+  id: "default-edge",
+  type: "edge",
+  sourceNodeId: "",
+  targetNodeId: "",
+  sourceAnchor: "auto",
+  targetAnchor: "auto",
+  color: "#ffffff",
+  width: 3,
+  dashed: false,
+  arrowStart: false,
+  arrowEnd: true,
+  curve: 0.32,
+  opacity: 1,
+  zIndex: 0,
+  transition: "spring",
+  entranceAnimation: "draw",
+  replayEntranceOnStepChange: false,
+};
+
 export interface Snapshot {
   nodes: CanvasNode[];
+  edges: CanvasEdge[];
 }

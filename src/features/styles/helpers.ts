@@ -5,6 +5,7 @@ import {
   type EntranceAnimation,
   type BoxShadowStyle,
   type CanvasNode,
+  type NodeTransition,
   type RectNode,
   type TextShadowStyle,
   type TextNode,
@@ -68,8 +69,8 @@ const getBoxShadowStyle = (shadow: BoxShadowStyle) => {
   return `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.spread}px ${toRgbaColor(shadow.color, opacity)}`;
 };
 
-export const getNodeTransition = (
-  node: CanvasNode,
+export const getEntityTransition = (
+  transition: NodeTransition,
   isSelected: boolean,
   isPreviewing = false,
 ) => {
@@ -77,7 +78,7 @@ export const getNodeTransition = (
     return { duration: 0 };
   }
 
-  if (node.transition === "spring") {
+  if (transition === "spring") {
     return {
       type: "spring" as const,
       stiffness: 150,
@@ -87,6 +88,12 @@ export const getNodeTransition = (
 
   return { duration: 0 };
 };
+
+export const getNodeTransition = (
+  node: CanvasNode,
+  isSelected: boolean,
+  isPreviewing = false,
+) => getEntityTransition(node.transition, isSelected, isPreviewing);
 
 export const getEntranceInitial = (animation: EntranceAnimation) => {
   switch (animation) {
