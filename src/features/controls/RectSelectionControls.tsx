@@ -1,11 +1,14 @@
 import { folder, useControls } from "leva";
 import { useEffect, useRef } from "react";
 import {
+  BOX_CONTENT_KIND_OPTIONS,
   type BoxNode,
   DEFAULT_BOX_SHADOW_STYLE,
   RECT_BACKGROUND_SIZE_OPTIONS,
+  type BoxContentKind,
   type RectBackgroundSize,
 } from "../../core/nodes";
+import { BOX_COMPONENT_OPTIONS } from "../../components/box/boxComponentRegistry";
 import {
   MIXED_HINT,
   clearNumericEditSession,
@@ -44,9 +47,37 @@ export function RectSelectionControls({
     nodes.map((node) => node.content),
     "",
   );
+  const contentKind = getSharedValue<BoxContentKind>(
+    nodes.map((node) => node.contentKind),
+    "plain",
+  );
+  const svgContent = getSharedValue(
+    nodes.map((node) => node.svgContent),
+    "",
+  );
+  const componentId = getSharedValue(
+    nodes.map((node) => node.componentId),
+    BOX_COMPONENT_OPTIONS[0] ?? "badge-note",
+  );
+  const componentPropsText = getSharedValue(
+    nodes.map((node) => JSON.stringify(node.componentProps, null, 2)),
+    "{}",
+  );
   const backgroundSize = getSharedValue<RectBackgroundSize>(
     nodes.map((node) => node.backgroundSize),
     "cover",
+  );
+  const backgroundEnabled = getSharedValue(
+    nodes.map((node) => node.backgroundEnabled),
+    true,
+  );
+  const borderEnabled = getSharedValue(
+    nodes.map((node) => node.borderEnabled),
+    true,
+  );
+  const sanitizeSvg = getSharedValue(
+    nodes.map((node) => node.sanitizeSvg),
+    true,
   );
   const boxShadowEnabled = getSharedValue(
     nodes.map(
@@ -216,6 +247,59 @@ export function RectSelectionControls({
       }),
       background: folder(
         {
+          kind: {
+            options: [...BOX_CONTENT_KIND_OPTIONS],
+            value: contentKind.value,
+            hint: contentKind.mixed ? MIXED_HINT : undefined,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextValue: BoxContentKind,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              updateSelectedNodes(
+                (node) =>
+                  node.type === "box"
+                    ? {
+                        ...node,
+                        contentKind: nextValue,
+                      }
+                    : node,
+                { commitHistory: false },
+              );
+            },
+          },
+          backgroundEnabled: {
+            value: backgroundEnabled.value,
+            hint: backgroundEnabled.mixed ? MIXED_HINT : undefined,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextEnabled: boolean,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              updateSelectedNodes(
+                (node) =>
+                  node.type === "box"
+                    ? {
+                        ...node,
+                        backgroundEnabled: nextEnabled,
+                      }
+                    : node,
+                { commitHistory: false },
+              );
+            },
+          },
           backgroundSize: {
             options: [...RECT_BACKGROUND_SIZE_OPTIONS],
             value: backgroundSize.value,
@@ -592,7 +676,173 @@ export function RectSelectionControls({
             { collapsed: true },
           ),
         },
-        { collapsed: false },
+        {
+          collapsed: false,
+          render: (get) => get("Rect.background.kind") === "plain",
+        },
+      ),
+      svg: folder(
+        {
+          svgContent: {
+            value: svgContent.mixed ? "" : svgContent.value,
+            hint: svgContent.mixed ? MIXED_HINT : undefined,
+            rows: 8,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextValue: string,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              updateSelectedNodes(
+                (node) =>
+                  node.type === "box"
+                    ? {
+                        ...node,
+                        svgContent: nextValue,
+                      }
+                    : node,
+                { commitHistory: false },
+              );
+            },
+          },
+          sanitize: {
+            value: sanitizeSvg.value,
+            hint: sanitizeSvg.mixed ? MIXED_HINT : undefined,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextValue: boolean,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              updateSelectedNodes(
+                (node) =>
+                  node.type === "box"
+                    ? {
+                        ...node,
+                        sanitizeSvg: nextValue,
+                      }
+                    : node,
+                { commitHistory: false },
+              );
+            },
+          },
+        },
+        {
+          collapsed: false,
+          render: (get) => get("Rect.background.kind") === "svg",
+        },
+      ),
+      component: folder(
+        {
+          componentId: {
+            options: BOX_COMPONENT_OPTIONS,
+            value: componentId.value,
+            hint: componentId.mixed ? MIXED_HINT : undefined,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextValue: string,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              updateSelectedNodes(
+                (node) =>
+                  node.type === "box"
+                    ? {
+                        ...node,
+                        componentId: nextValue,
+                      }
+                    : node,
+                { commitHistory: false },
+              );
+            },
+          },
+          componentProps: {
+            value: componentPropsText.mixed ? "" : componentPropsText.value,
+            hint: componentPropsText.mixed ? MIXED_HINT : undefined,
+            rows: 8,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextValue: string,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              try {
+                const parsed = JSON.parse(nextValue) as Record<string, unknown>;
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                  return;
+                }
+
+                updateSelectedNodes(
+                  (node) =>
+                    node.type === "box"
+                      ? {
+                          ...node,
+                          componentProps: parsed,
+                        }
+                      : node,
+                  { commitHistory: false },
+                );
+              } catch {
+                // keep editing flow while json is incomplete
+              }
+            },
+          },
+        },
+        {
+          collapsed: false,
+          render: (get) => get("Rect.background.kind") === "component",
+        },
+      ),
+      border: folder(
+        {
+          borderEnabled: {
+            value: borderEnabled.value,
+            hint: borderEnabled.mixed ? MIXED_HINT : undefined,
+            onEditStart: startEdit,
+            onEditEnd: () => {
+              commitSelectedNodes();
+              endEdit();
+            },
+            onChange: (
+              nextEnabled: boolean,
+              _: string,
+              context: LevaOnChangeContext,
+            ) => {
+              if (shouldIgnoreLevaChange(context)) return;
+              updateSelectedNodes(
+                (node) =>
+                  node.type === "box"
+                    ? {
+                        ...node,
+                        borderEnabled: nextEnabled,
+                      }
+                    : node,
+                { commitHistory: false },
+              );
+            },
+          },
+        },
+        { collapsed: true },
       ),
     }),
     [
@@ -603,10 +853,24 @@ export function RectSelectionControls({
       height.mixed,
       content.value,
       content.mixed,
+      contentKind.value,
+      contentKind.mixed,
+      svgContent.value,
+      svgContent.mixed,
+      componentId.value,
+      componentId.mixed,
+      componentPropsText.value,
+      componentPropsText.mixed,
       contentColor.value,
       contentColor.mixed,
       backgroundSize.value,
       backgroundSize.mixed,
+      backgroundEnabled.value,
+      backgroundEnabled.mixed,
+      borderEnabled.value,
+      borderEnabled.mixed,
+      sanitizeSvg.value,
+      sanitizeSvg.mixed,
       boxShadowEnabled.value,
       boxShadowEnabled.mixed,
       boxShadowX.value,

@@ -17,6 +17,12 @@ export const ENTRANCE_ANIMATIONS = [
 export const TEXT_ALIGN_OPTIONS = ["left", "center", "right"] as const;
 export const FONT_STYLE_OPTIONS = ["normal", "italic"] as const;
 export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
+export const BOX_CONTENT_KIND_OPTIONS = [
+  "plain",
+  "image",
+  "svg",
+  "component",
+] as const;
 export const EDGE_ENTRANCE_ANIMATIONS = ["none", "fade", "draw"] as const;
 export const EDGE_ANCHOR_OPTIONS = [
   "auto",
@@ -32,6 +38,7 @@ export type EntranceAnimation = (typeof ENTRANCE_ANIMATIONS)[number];
 export type TextAlign = (typeof TEXT_ALIGN_OPTIONS)[number];
 export type FontStyle = (typeof FONT_STYLE_OPTIONS)[number];
 export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
+export type BoxContentKind = (typeof BOX_CONTENT_KIND_OPTIONS)[number];
 export type EdgeEntranceAnimation =
   (typeof EDGE_ENTRANCE_ANIMATIONS)[number];
 export type EdgeAnchor = (typeof EDGE_ANCHOR_OPTIONS)[number];
@@ -93,8 +100,15 @@ export interface BoxNode extends BaseNode {
   };
   backgroundImage?: string;
   backgroundSize: RectBackgroundSize;
+  backgroundEnabled: boolean;
+  borderEnabled: boolean;
+  contentKind: BoxContentKind;
   boxShadow: BoxShadowStyle;
   content: string;
+  svgContent: string;
+  sanitizeSvg: boolean;
+  componentId: string;
+  componentProps: Record<string, unknown>;
   contentTypography: RectContentTypography;
 }
 
@@ -134,17 +148,7 @@ export type CanvasEntity = CanvasNode | CanvasEdge;
 
 export type RectNode = BoxNode;
 
-export const normalizeCanvasNode = (value: unknown): CanvasNode => {
-  const node = value as Record<string, unknown> | null;
-  if (node && typeof node === "object" && node.type === "rect") {
-    return {
-      ...node,
-      type: "box",
-    } as CanvasNode;
-  }
-
-  return value as CanvasNode;
-};
+export const DEFAULT_BOX_COMPONENT_ID = "badge-note";
 
 export const DEFAULT_TEXT_SHADOW_STYLE: TextShadowStyle = {
   enabled: false,
@@ -170,6 +174,9 @@ export const DEFAULT_BOX_NODE: BoxNode = {
   size: { width: 100, height: 100 },
   backgroundImage: undefined,
   backgroundSize: "cover",
+  backgroundEnabled: true,
+  borderEnabled: true,
+  contentKind: "plain",
   boxShadow: { ...DEFAULT_BOX_SHADOW_STYLE },
   bgColor: "#ffffff",
   radius: 0,
@@ -183,6 +190,10 @@ export const DEFAULT_BOX_NODE: BoxNode = {
   entranceAnimation: "pop",
   replayEntranceOnStepChange: false,
   content: "",
+  svgContent: "",
+  sanitizeSvg: true,
+  componentId: DEFAULT_BOX_COMPONENT_ID,
+  componentProps: {},
   contentTypography: {
     color: "#000000",
     fontSize: 20,
@@ -200,6 +211,49 @@ export const DEFAULT_BOX_NODE: BoxNode = {
 };
 
 export const DEFAULT_RECT_NODE = DEFAULT_BOX_NODE;
+
+export const normalizeCanvasNode = (value: unknown): CanvasNode => {
+  const node = value as Record<string, unknown> | null;
+  if (!node || typeof node !== "object") {
+    return value as CanvasNode;
+  }
+
+  if (node.type === "rect" || node.type === "box") {
+    const hasBackgroundImage =
+      typeof node.backgroundImage === "string" && node.backgroundImage.length > 0;
+    const normalizedContentKind =
+      node.contentKind === "plain" ||
+      node.contentKind === "image" ||
+      node.contentKind === "svg" ||
+      node.contentKind === "component"
+        ? node.contentKind
+        : hasBackgroundImage
+          ? "image"
+          : "plain";
+
+    return {
+      ...node,
+      type: "box",
+      backgroundEnabled:
+        typeof node.backgroundEnabled === "boolean" ? node.backgroundEnabled : true,
+      borderEnabled:
+        typeof node.borderEnabled === "boolean" ? node.borderEnabled : true,
+      contentKind: normalizedContentKind,
+      svgContent: typeof node.svgContent === "string" ? node.svgContent : "",
+      sanitizeSvg: typeof node.sanitizeSvg === "boolean" ? node.sanitizeSvg : true,
+      componentId:
+        typeof node.componentId === "string" && node.componentId.length > 0
+          ? node.componentId
+          : DEFAULT_BOX_COMPONENT_ID,
+      componentProps:
+        typeof node.componentProps === "object" && node.componentProps !== null
+          ? (node.componentProps as Record<string, unknown>)
+          : {},
+    } as CanvasNode;
+  }
+
+  return value as CanvasNode;
+};
 
 export const DEFAULT_TEXT_NODE: TextNode = {
   id: "default-text",

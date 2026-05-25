@@ -14,11 +14,11 @@ import {
 import {
   getNodeStyle,
   getNodeTransition,
-  getRectContentStyle,
   getTextStyle,
   getEntranceInitialFromTarget,
   getEntranceTransition,
 } from "../../features/styles/helpers";
+import { BoxContentRenderer } from "../box/BoxContentRenderer";
 import {
   createTextSnapshot,
   createRectSnapshot,
@@ -377,9 +377,7 @@ export function CanvasNodeItem({
           resizeDirections={node.type === "text" ? ["w", "e"] : undefined}
         />
       ) : null}
-      {node.type === "box" && node.content ? (
-        <div style={getRectContentStyle(node)}>{node.content}</div>
-      ) : null}
+      {node.type === "box" ? <BoxContentRenderer node={node} /> : null}
       {node.type === "text" ? (
         <div style={getTextStyle(node)}>{node.text}</div>
       ) : null}

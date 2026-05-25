@@ -215,18 +215,25 @@ export const getRectContentStyle = (node: BoxNode): CSSProperties => ({
 export const getNodeStyle = (node: CanvasNode) => {
   switch (node.type) {
     case "box":
+      const shouldRenderBackgroundImage =
+        node.contentKind === "image" &&
+        typeof node.backgroundImage === "string" &&
+        node.backgroundImage.length > 0;
+
       return {
         width: node.size.width,
         height: node.size.height,
-        backgroundColor: node.bgColor,
-        backgroundImage: node.backgroundImage
+        backgroundColor: node.backgroundEnabled ? node.bgColor : "transparent",
+        backgroundImage: shouldRenderBackgroundImage
           ? `url(${JSON.stringify(node.backgroundImage)})`
           : undefined,
-        backgroundPosition: node.backgroundImage ? "center" : undefined,
-        backgroundRepeat: node.backgroundImage ? "no-repeat" : undefined,
-        backgroundSize: node.backgroundImage ? node.backgroundSize : undefined,
+        backgroundPosition: shouldRenderBackgroundImage ? "center" : undefined,
+        backgroundRepeat: shouldRenderBackgroundImage ? "no-repeat" : undefined,
+        backgroundSize: shouldRenderBackgroundImage ? node.backgroundSize : undefined,
         borderRadius: node.radius,
-        border: `${node.borderWidth}px solid ${node.borderColor}`,
+        border: node.borderEnabled
+          ? `${node.borderWidth}px solid ${node.borderColor}`
+          : "0px solid transparent",
         boxShadow: getBoxShadowStyle(node.boxShadow ?? DEFAULT_BOX_SHADOW_STYLE),
       };
     case "text":
