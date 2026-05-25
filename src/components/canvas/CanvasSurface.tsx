@@ -618,7 +618,7 @@ export function CanvasSurface({
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
-  const handleCanvasWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+  const handleCanvasWheel = (event: WheelEvent) => {
     if (!containerRef.current) {
       return;
     }
@@ -659,6 +659,23 @@ export function CanvasSurface({
       };
     });
   };
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || viewOnly) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      handleCanvasWheel(event);
+    };
+
+    element.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener("wheel", onWheel);
+    };
+  }, [viewOnly, onShiftWheel]);
 
   const toggleNodeSelection = (nodeId: string) => {
     setActiveNodeIds(
@@ -858,7 +875,6 @@ export function CanvasSurface({
               : "default"
             : "grabbing",
       }}
-      onWheel={viewOnly ? undefined : handleCanvasWheel}
       onPointerDown={viewOnly ? undefined : handleBackgroundPointerDown}
       onPointerMove={viewOnly ? undefined : handleBackgroundPointerMove}
       onPointerUp={viewOnly ? undefined : handleBackgroundPointerUp}
