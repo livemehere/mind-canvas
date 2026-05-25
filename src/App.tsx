@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Leva } from "leva";
-import { Copy, Eraser, Save, Trash2, Upload } from "lucide-react";
+import { ArrowBigLeft, ArrowBigRight, Copy, Eraser, Save, Trash2, Upload } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ShortcutHelpOverlay } from "./components/app/ShortcutHelpOverlay";
 import { ViewportFocusPanel } from "./components/app/ViewportFocusPanel";
@@ -209,6 +209,22 @@ export default function App() {
     goToNextStep();
   };
 
+  const goToFirstStep = () => {
+    if (step === 0) {
+      return;
+    }
+
+    goToStep(0);
+  };
+
+  const goToLastStep = () => {
+    if (step >= snapShotLength - 1) {
+      return;
+    }
+
+    goToStep(snapShotLength - 1);
+  };
+
   const preventButtonFocus = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
   };
@@ -282,6 +298,8 @@ export default function App() {
       goToStep(step - 1);
     },
     onStepNext: goToNextStepInCurrentMode,
+    onStepFirst: goToFirstStep,
+    onStepLast: goToLastStep,
   });
 
   useGlobalPasteHandler({
@@ -301,9 +319,31 @@ export default function App() {
           <div className="absolute left-1/2 bottom-20 z-10 -translate-x-1/2">
             <div className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-950/85 px-3 py-2 text-xs font-medium text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
               <span className="tracking-[0.2em] text-white/45">STEP</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (step > 0) {
+                    goToStep(step - 1);
+                  }
+                }}
+                disabled={step === 0}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                title="Previous step (1 / Left)"
+              >
+                <ArrowBigLeft size={14} />
+              </button>
               <span className="min-w-16 text-center text-sm font-semibold tracking-tight text-white">
                 {step} / {snapShotLength - 1}
               </span>
+              <button
+                type="button"
+                onClick={goToNextStepInCurrentMode}
+                disabled={step >= snapShotLength - 1}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                title="Next step (2 / Right)"
+              >
+                <ArrowBigRight size={14} />
+              </button>
               <button
                 type="button"
                 onClick={removeCurrentStep}

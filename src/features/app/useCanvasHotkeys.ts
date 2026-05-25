@@ -1,6 +1,8 @@
 import { useHotkeys } from "react-hotkeys-hook";
 import { oncePerKeypress } from "../hotkeys/helpers";
 import {
+  HOTKEY_FIRST_STEP,
+  HOTKEY_LAST_STEP,
   HOTKEY_COPY,
   HOTKEY_CUT,
   HOTKEY_DELETE_NODE,
@@ -46,6 +48,8 @@ interface UseCanvasHotkeysOptions {
   onToggleShortcutHelp: () => void;
   onStepPrev: () => void;
   onStepNext: () => void;
+  onStepFirst: () => void;
+  onStepLast: () => void;
 }
 
 export const useCanvasHotkeys = ({
@@ -70,6 +74,8 @@ export const useCanvasHotkeys = ({
   onToggleShortcutHelp,
   onStepPrev,
   onStepNext,
+  onStepFirst,
+  onStepLast,
 }: UseCanvasHotkeysOptions) => {
   useHotkeys(HOTKEY_SELECT_CURSOR, oncePerKeypress(onSelectTool));
   useHotkeys(HOTKEY_RECT_TOOL, oncePerKeypress(onRectTool));
@@ -116,4 +122,6 @@ export const useCanvasHotkeys = ({
   );
   useHotkeys(HOTKEY_PREVIOUS_STEP, oncePerKeypress(onStepPrev));
   useHotkeys(HOTKEY_NEXT_STEP, oncePerKeypress(onStepNext));
+  useHotkeys(HOTKEY_FIRST_STEP, oncePerKeypress(onStepFirst));
+  useHotkeys(HOTKEY_LAST_STEP, oncePerKeypress(onStepLast));
 };

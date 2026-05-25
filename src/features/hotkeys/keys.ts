@@ -21,3 +21,5 @@ export const HOTKEY_SAVE_SNAPSHOTS = "meta+s,ctrl+s";
 export const HOTKEY_RESET_VIEWPORT_TO_ORIGIN = "c";
 export const HOTKEY_PREVIOUS_STEP = "1,left";
 export const HOTKEY_NEXT_STEP = "2,right";
+export const HOTKEY_FIRST_STEP = "down";
+export const HOTKEY_LAST_STEP = "up";
