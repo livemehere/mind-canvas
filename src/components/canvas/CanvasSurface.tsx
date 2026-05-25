@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type CanvasEdge,
   type CanvasNode,
+  type EdgeAnchor,
   type Position,
   type RectNode,
   type TextNode,
@@ -125,6 +126,9 @@ export function CanvasSurface({
   const dragSnapCacheRef = useRef<DragSnapCache | null>(null);
   const dragNodeIdsRef = useRef<string[] | null>(null);
   const pendingEdgeSourceNodeIdRef = useRef<string | null>(null);
+  const edgeDragSourceNodeIdRef = useRef<string | null>(null);
+  const edgeDragSourceAnchorRef = useRef<EdgeAnchor | null>(null);
+  const edgeDragPointerIdRef = useRef<number | null>(null);
   const dragAxisRef = useRef<"x" | "y" | null>(null);
   const panPointerIdRef = useRef<number | null>(null);
   const panStartClientRef = useRef<Position | null>(null);
@@ -154,6 +158,13 @@ export function CanvasSurface({
   const [entranceRun, setEntranceRun] = useState(0);
   const [edgeEntranceRun, setEdgeEntranceRun] = useState(0);
   const [edgeDraftTarget, setEdgeDraftTarget] = useState<Position | null>(null);
+  const [edgeDraftTargetAnchor, setEdgeDraftTargetAnchor] =
+    useState<EdgeAnchor | null>(null);
+  const [edgeDraftHoverNodeId, setEdgeDraftHoverNodeId] = useState<string | null>(
+    null,
+  );
+  const [edgeDraftHoverAnchor, setEdgeDraftHoverAnchor] =
+    useState<EdgeAnchor | null>(null);
 
   useEffect(() => {
     if (entranceNodeIds.length === 0) {
@@ -178,7 +189,11 @@ export function CanvasSurface({
     }
 
     pendingEdgeSourceNodeIdRef.current = null;
+    edgeDragSourceAnchorRef.current = null;
     setEdgeDraftTarget(null);
+    setEdgeDraftTargetAnchor(null);
+    setEdgeDraftHoverNodeId(null);
+    setEdgeDraftHoverAnchor(null);
   }, [activeToolId]);
 
   const selectedNodes = useMemo(
@@ -591,6 +606,10 @@ export function CanvasSurface({
       return;
     }
 
+    if (activeToolId === "arrow" && edgeDragPointerIdRef.current !== null) {
+      return;
+    }
+
     if (
       event.target !== event.currentTarget &&
       event.target !== worldRef.current
@@ -641,6 +660,28 @@ export function CanvasSurface({
       return;
     }
 
+    if (
+      activeToolId === "arrow" &&
+      edgeDragPointerIdRef.current === event.pointerId &&
+      edgeDragSourceNodeIdRef.current
+    ) {
+      const position = getCanvasPosition(event);
+      setEdgeDraftTarget(position);
+      const hit = getClosestPortHit(position, {
+        excludeNodeId: edgeDragSourceNodeIdRef.current,
+        maxDistance: 28,
+      });
+      if (!hit) {
+        setEdgeDraftHoverNodeId(null);
+        setEdgeDraftHoverAnchor(null);
+        return;
+      }
+
+      setEdgeDraftHoverNodeId(hit.nodeId);
+      setEdgeDraftHoverAnchor(hit.anchor);
+      return;
+    }
+
     if (activeToolId === "arrow" && pendingEdgeSourceNodeIdRef.current) {
       const position = getCanvasPosition(event);
       setEdgeDraftTarget(position);
@@ -676,6 +717,46 @@ export function CanvasSurface({
       return;
     }
 
+    if (
+      activeToolId === "arrow" &&
+      edgeDragPointerIdRef.current === event.pointerId &&
+      edgeDragSourceNodeIdRef.current
+    ) {
+      const sourceNodeId = edgeDragSourceNodeIdRef.current;
+      const end = getCanvasPosition(event);
+      const hit = getClosestPortHit(end, {
+        excludeNodeId: sourceNodeId,
+        maxDistance: 28,
+      });
+      const targetNodeId = hit?.nodeId ?? null;
+
+      if (targetNodeId && targetNodeId !== sourceNodeId) {
+        const nextEdge = {
+          ...createEdge(sourceNodeId, targetNodeId),
+          sourceAnchor: edgeDragSourceAnchorRef.current ?? "auto",
+          targetAnchor:
+            hit?.anchor ?? edgeDraftHoverAnchor ?? edgeDraftTargetAnchor ?? "auto",
+        };
+        commitEdges((currentEdges) => [...currentEdges, nextEdge]);
+        setActiveNodeIds([]);
+        setActiveEdgeIds([nextEdge.id]);
+      }
+
+      edgeDragPointerIdRef.current = null;
+      edgeDragSourceNodeIdRef.current = null;
+      edgeDragSourceAnchorRef.current = null;
+      pendingEdgeSourceNodeIdRef.current = null;
+      setEdgeDraftTarget(null);
+      setEdgeDraftTargetAnchor(null);
+      setEdgeDraftHoverNodeId(null);
+      setEdgeDraftHoverAnchor(null);
+      pointerStartRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
+
     const start = pointerStartRef.current;
     const end = getCanvasPosition(event);
     const distance = Math.hypot(end.x - start.x, end.y - start.y);
@@ -690,8 +771,13 @@ export function CanvasSurface({
       if (!pendingEdgeSourceNodeIdRef.current) {
         setActiveNodeIds([]);
         setActiveEdgeIds([]);
+        setEdgeDraftTargetAnchor(null);
       }
       setEdgeDraftTarget(pendingEdgeSourceNodeIdRef.current ? end : null);
+      if (!pendingEdgeSourceNodeIdRef.current) {
+        setEdgeDraftHoverNodeId(null);
+        setEdgeDraftHoverAnchor(null);
+      }
     } else if (distance < DRAG_THRESHOLD) {
       onClickBackground(end);
     }
@@ -794,14 +880,30 @@ export function CanvasSurface({
 
       if (sourceNodeId === node.id) {
         pendingEdgeSourceNodeIdRef.current = null;
+        edgeDragSourceAnchorRef.current = null;
         setEdgeDraftTarget(null);
+        setEdgeDraftTargetAnchor(null);
         return;
       }
 
-      const nextEdge = createEdge(sourceNodeId, node.id);
+      const sourceNode = nodes.find((item) => item.id === sourceNodeId);
+      const sourceAnchor = edgeDragSourceAnchorRef.current ?? "auto";
+      const targetAnchor =
+        sourceNode && sourceAnchor !== "auto"
+          ? resolveClosestAnchor(node, getNodePortPosition(sourceNode, sourceAnchor))
+          : "auto";
+      const nextEdge = {
+        ...createEdge(sourceNodeId, node.id),
+        sourceAnchor,
+        targetAnchor,
+      };
       commitEdges((currentEdges) => [...currentEdges, nextEdge]);
       pendingEdgeSourceNodeIdRef.current = null;
+      edgeDragSourceAnchorRef.current = null;
       setEdgeDraftTarget(null);
+      setEdgeDraftTargetAnchor(null);
+      setEdgeDraftHoverNodeId(null);
+      setEdgeDraftHoverAnchor(null);
       setActiveNodeIds([]);
       setActiveEdgeIds([nextEdge.id]);
       return;
@@ -1002,6 +1104,148 @@ export function CanvasSurface({
       )
     : undefined;
 
+  const getNodeCenterForHandle = (node: CanvasNode) => {
+    if (node.type === "rect") {
+      return {
+        x: node.position.x + node.size.width / 2,
+        y: node.position.y + node.size.height / 2,
+      };
+    }
+
+    return {
+      x: node.position.x,
+      y: node.position.y,
+    };
+  };
+
+  const getNodePortPosition = (node: CanvasNode, anchor: EdgeAnchor): Position => {
+    if (node.type === "rect") {
+      const x = node.position.x;
+      const y = node.position.y;
+      const width = node.size.width;
+      const height = node.size.height;
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+
+      switch (anchor) {
+        case "left":
+          return { x, y: cy };
+        case "right":
+          return { x: x + width, y: cy };
+        case "top":
+          return { x: cx, y };
+        case "bottom":
+          return { x: cx, y: y + height };
+        case "auto":
+          return { x: cx, y: cy };
+      }
+    }
+
+    const center = getNodeCenterForHandle(node);
+    const halfWidth = Math.max(60, node.typography.fontSize * 1.25 + node.paddingX);
+    const halfHeight = Math.max(
+      18,
+      (node.typography.fontSize * node.typography.lineHeight + node.paddingY * 2) / 2,
+    );
+
+    switch (anchor) {
+      case "left":
+        return { x: center.x - halfWidth, y: center.y };
+      case "right":
+        return { x: center.x + halfWidth, y: center.y };
+      case "top":
+        return { x: center.x, y: center.y - halfHeight };
+      case "bottom":
+        return { x: center.x, y: center.y + halfHeight };
+      case "auto":
+        return center;
+    }
+  };
+
+  const getClosestPortHit = (
+    position: Position,
+    options?: { excludeNodeId?: string; maxDistance?: number },
+  ) => {
+    const anchors: EdgeAnchor[] = ["top", "right", "bottom", "left"];
+    let bestNodeId: string | null = null;
+    let bestAnchor: EdgeAnchor = "top";
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    nodes.forEach((node) => {
+      if (options?.excludeNodeId && node.id === options.excludeNodeId) {
+        return;
+      }
+
+      anchors.forEach((anchor) => {
+        const point = getNodePortPosition(node, anchor);
+        const distance = Math.hypot(position.x - point.x, position.y - point.y);
+        if (distance < bestDistance) {
+          bestNodeId = node.id;
+          bestAnchor = anchor;
+          bestDistance = distance;
+        }
+      });
+    });
+
+    if (!bestNodeId) {
+      return null;
+    }
+
+    if (
+      typeof options?.maxDistance === "number" &&
+      bestDistance > options.maxDistance
+    ) {
+      return null;
+    }
+
+    return {
+      nodeId: bestNodeId,
+      anchor: bestAnchor,
+      distance: bestDistance,
+    };
+  };
+
+  const resolveClosestAnchor = (node: CanvasNode, position: Position): EdgeAnchor => {
+    const anchors: EdgeAnchor[] = ["top", "right", "bottom", "left"];
+    const nearest = anchors.reduce(
+      (best, anchor) => {
+        const point = getNodePortPosition(node, anchor);
+        const distance = Math.hypot(position.x - point.x, position.y - point.y);
+        if (distance < best.distance) {
+          return { anchor, distance };
+        }
+        return best;
+      },
+      { anchor: "top" as EdgeAnchor, distance: Number.POSITIVE_INFINITY },
+    );
+
+    return nearest.anchor;
+  };
+
+  const handleEdgeDragHandlePointerDown = (
+    event: React.PointerEvent<SVGCircleElement>,
+    sourceNodeId: string,
+    sourceAnchor: EdgeAnchor,
+  ) => {
+    if (viewOnly || activeToolId !== "arrow") {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const start = getCanvasPositionFromClient(event.clientX, event.clientY);
+    edgeDragPointerIdRef.current = event.pointerId;
+    edgeDragSourceNodeIdRef.current = sourceNodeId;
+    edgeDragSourceAnchorRef.current = sourceAnchor;
+    pendingEdgeSourceNodeIdRef.current = sourceNodeId;
+    setEdgeDraftTargetAnchor(sourceAnchor);
+    setEdgeDraftHoverNodeId(null);
+    setEdgeDraftHoverAnchor(null);
+    setEdgeDraftTarget(start);
+    pointerStartRef.current = start;
+    containerRef.current?.setPointerCapture(event.pointerId);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -1078,6 +1322,48 @@ export function CanvasSurface({
             onDragEnd={handleNodeDragEnd}
           />
         ))}
+        {activeToolId === "arrow" ? (
+          <svg
+            className="absolute inset-0 overflow-visible"
+            width="100%"
+            height="100%"
+          >
+            {nodes.flatMap((node) => {
+              const anchors: EdgeAnchor[] = ["top", "right", "bottom", "left"];
+
+              return anchors.map((anchor) => {
+                const point = getNodePortPosition(node, anchor);
+                const isActiveHandle =
+                  pendingEdgeSourceNodeIdRef.current === node.id &&
+                  edgeDragSourceAnchorRef.current === anchor;
+                const isHoverHandle =
+                  edgeDraftHoverNodeId === node.id && edgeDraftHoverAnchor === anchor;
+
+                return (
+                  <circle
+                    key={`edge-handle-${node.id}-${anchor}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r={isActiveHandle || isHoverHandle ? 7 : 5.25}
+                    fill={
+                      isActiveHandle
+                        ? "rgba(255,190,92,0.85)"
+                        : isHoverHandle
+                          ? "rgba(157,255,174,0.85)"
+                          : "rgba(255,255,255,0.22)"
+                    }
+                    stroke="rgba(255,255,255,0.9)"
+                    strokeWidth={1.25}
+                    className="cursor-crosshair"
+                    onPointerDown={(event) =>
+                      handleEdgeDragHandlePointerDown(event, node.id, anchor)
+                    }
+                  />
+                );
+              });
+            })}
+          </svg>
+        ) : null}
         {activeToolId === "arrow" &&
         pendingEdgeSourceNodeIdRef.current &&
         edgeDraftTarget ? (
@@ -1095,24 +1381,59 @@ export function CanvasSurface({
               }
 
               const sourcePoint =
-                sourceNode.type === "rect"
-                  ? {
-                      x: sourceNode.position.x + sourceNode.size.width / 2,
-                      y: sourceNode.position.y + sourceNode.size.height / 2,
+                edgeDragSourceAnchorRef.current &&
+                edgeDragSourceAnchorRef.current !== "auto"
+                  ? getNodePortPosition(sourceNode, edgeDragSourceAnchorRef.current)
+                  : getNodeCenterForHandle(sourceNode);
+
+              const targetPoint = edgeDraftHoverNodeId
+                ? (() => {
+                    const hoverNode = nodes.find(
+                      (node) => node.id === edgeDraftHoverNodeId,
+                    );
+                    if (!hoverNode || !edgeDraftHoverAnchor) {
+                      return edgeDraftTarget;
                     }
-                  : {
-                      x: sourceNode.position.x,
-                      y: sourceNode.position.y,
-                    };
+
+                    return getNodePortPosition(hoverNode, edgeDraftHoverAnchor);
+                  })()
+                : edgeDraftTarget;
+
+              const targetNodeHighlight =
+                edgeDraftHoverNodeId && edgeDraftHoverAnchor
+                  ? (() => {
+                      const hoverNode = nodes.find(
+                        (node) => node.id === edgeDraftHoverNodeId,
+                      );
+                      if (!hoverNode) {
+                        return null;
+                      }
+
+                      const point = getNodePortPosition(hoverNode, edgeDraftHoverAnchor);
+                      return (
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r={7.5}
+                          fill="rgba(157,255,174,0.9)"
+                          stroke="rgba(255,255,255,0.95)"
+                          strokeWidth={1.5}
+                        />
+                      );
+                    })()
+                  : null;
 
               return (
-                <path
-                  d={`M ${sourcePoint.x} ${sourcePoint.y} L ${edgeDraftTarget.x} ${edgeDraftTarget.y}`}
-                  fill="none"
-                  stroke="rgba(255,255,255,0.7)"
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                />
+                <>
+                  <path
+                    d={`M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.7)"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                  />
+                  {targetNodeHighlight}
+                </>
               );
             })()}
           </svg>

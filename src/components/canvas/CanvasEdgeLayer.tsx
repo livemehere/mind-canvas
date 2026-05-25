@@ -3,6 +3,7 @@ import {
   type CanvasEdge,
   type CanvasNode,
   type EdgeAnchor,
+  type EdgeRoute,
   type Position,
 } from "../../core/nodes";
 import {
@@ -116,6 +117,57 @@ const getCurvePath = (
   return `M ${source.x} ${source.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${target.x} ${target.y}`;
 };
 
+const getStraightPath = (source: Position, target: Position) =>
+  `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
+
+const getElbowPath = (source: Position, target: Position) => {
+  const midX = (source.x + target.x) / 2;
+  return `M ${source.x} ${source.y} L ${midX} ${source.y} L ${midX} ${target.y} L ${target.x} ${target.y}`;
+};
+
+const getEdgePath = (
+  source: Position,
+  target: Position,
+  route: EdgeRoute,
+  curve: number,
+) => {
+  if (route === "straight") {
+    return getStraightPath(source, target);
+  }
+
+  if (route === "elbow") {
+    return getElbowPath(source, target);
+  }
+
+  return getCurvePath(source, target, curve);
+};
+
+const getTargetAnchorAngle = (anchor: Exclude<EdgeAnchor, "auto">) => {
+  switch (anchor) {
+    case "left":
+      return 0;
+    case "right":
+      return 180;
+    case "top":
+      return 90;
+    case "bottom":
+      return -90;
+  }
+};
+
+const getSourceAnchorAngle = (anchor: Exclude<EdgeAnchor, "auto">) => {
+  switch (anchor) {
+    case "left":
+      return 180;
+    case "right":
+      return 0;
+    case "top":
+      return -90;
+    case "bottom":
+      return 90;
+  }
+};
+
 export function CanvasEdgeLayer({
   nodes,
   edges,
@@ -158,14 +210,36 @@ export function CanvasEdgeLayer({
 
       const sourcePoint = getAnchorPoint(sourceBounds, sourceAnchor);
       const targetPoint = getAnchorPoint(targetBounds, targetAnchor);
-      const d = getCurvePath(sourcePoint, targetPoint, edge.curve);
+      const d = getEdgePath(
+        sourcePoint,
+        targetPoint,
+        edge.route ?? "curve",
+        edge.curve,
+      );
+      const targetAngle = getTargetAnchorAngle(targetAnchor);
+      const sourceAngle = getSourceAnchorAngle(sourceAnchor);
 
       return {
         edge,
         d,
+        sourcePoint,
+        targetPoint,
+        sourceAngle,
+        targetAngle,
       };
     })
-    .filter((value): value is { edge: CanvasEdge; d: string } => value !== null)
+    .filter(
+      (
+        value,
+      ): value is {
+        edge: CanvasEdge;
+        d: string;
+        sourcePoint: Position;
+        targetPoint: Position;
+        sourceAngle: number;
+        targetAngle: number;
+      } => value !== null,
+    )
     .sort((a, b) => a.edge.zIndex - b.edge.zIndex);
 
   return (
@@ -174,23 +248,8 @@ export function CanvasEdgeLayer({
       width="100%"
       height="100%"
     >
-      <defs>
-        {renderedEdges.map(({ edge }) => (
-          <marker
-            key={`arrow-end-${edge.id}`}
-            id={`arrow-end-${edge.id}`}
-            markerWidth="10"
-            markerHeight="10"
-            refX="9"
-            refY="5"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M0,0 L10,5 L0,10 z" fill={edge.color} />
-          </marker>
-        ))}
-      </defs>
-      {renderedEdges.map(({ edge, d }) => {
+      {renderedEdges.map(
+        ({ edge, d, sourcePoint, targetPoint, sourceAngle, targetAngle }) => {
         const isSelected = activeEdgeIds.includes(edge.id);
         const animateTarget = {
           d,
@@ -205,10 +264,20 @@ export function CanvasEdgeLayer({
               ? { d, opacity: 0, pathLength: 1 }
               : false
           : false;
-        const transition =
-          shouldPlayEntrance && edge.entranceAnimation !== "draw"
-            ? getEntranceTransition("fade")
-            : getEntityTransition(edge.transition, isSelected, isPreviewing);
+        const drawTransition = { duration: 0.38, ease: "easeOut" as const };
+        const transition = shouldPlayEntrance
+          ? edge.entranceAnimation === "draw"
+            ? drawTransition
+            : getEntranceTransition("fade")
+          : getEntityTransition(edge.transition, isSelected, isPreviewing);
+        const arrowDelay = shouldPlayEntrance
+          ? edge.entranceAnimation === "draw"
+            ? drawTransition.duration
+            : 0.22
+          : 0;
+        const arrowOpacityTarget = edge.opacity;
+        const highlightStroke = isSelected ? Math.max(edge.width + 4, 8) : edge.width;
+        const highlightColor = isSelected ? "#ffbe5c" : edge.color;
 
         return (
           <g key={shouldPlayEntrance ? `${edge.id}:entrance:${entranceRun}` : edge.id}>
@@ -218,19 +287,58 @@ export function CanvasEdgeLayer({
               animate={animateTarget}
               transition={transition}
               fill="none"
-              stroke={edge.color}
-              strokeWidth={edge.width}
+              stroke={highlightColor}
+              strokeWidth={highlightStroke}
               strokeDasharray={edge.dashed ? "8 6" : undefined}
-              markerEnd={
-                edge.arrowEnd ? `url(#arrow-end-${edge.id})` : undefined
-              }
-              markerStart={
-                edge.arrowStart ? `url(#arrow-end-${edge.id})` : undefined
-              }
-              style={{
-                filter: isSelected ? "drop-shadow(0 0 5px rgba(152,16,250,0.75))" : undefined,
-              }}
             />
+            {edge.arrowStart ? (
+              <motion.path
+                d="M0,0 L13,6.5 L0,13 z"
+                initial={
+                  shouldPlayEntrance
+                    ? {
+                        x: sourcePoint.x - 13,
+                        y: sourcePoint.y - 6.5,
+                        rotate: sourceAngle,
+                        opacity: 0,
+                      }
+                    : false
+                }
+                animate={{
+                  x: sourcePoint.x - 13,
+                  y: sourcePoint.y - 6.5,
+                  rotate: sourceAngle,
+                  opacity: arrowOpacityTarget,
+                }}
+                transition={{ ...transition, delay: arrowDelay }}
+                fill={highlightColor}
+                style={{ transformOrigin: "13px 6.5px" }}
+              />
+            ) : null}
+            {edge.arrowEnd ? (
+              <motion.path
+                d="M0,0 L13,6.5 L0,13 z"
+                initial={
+                  shouldPlayEntrance
+                    ? {
+                        x: targetPoint.x - 13,
+                        y: targetPoint.y - 6.5,
+                        rotate: targetAngle,
+                        opacity: 0,
+                      }
+                    : false
+                }
+                animate={{
+                  x: targetPoint.x - 13,
+                  y: targetPoint.y - 6.5,
+                  rotate: targetAngle,
+                  opacity: arrowOpacityTarget,
+                }}
+                transition={{ ...transition, delay: arrowDelay }}
+                fill={highlightColor}
+                style={{ transformOrigin: "13px 6.5px" }}
+              />
+            ) : null}
             <path
               d={d}
               fill="none"
@@ -241,7 +349,8 @@ export function CanvasEdgeLayer({
             />
           </g>
         );
-      })}
+        },
+      )}
     </svg>
   );
 }

@@ -18,6 +18,14 @@ export const TEXT_ALIGN_OPTIONS = ["left", "center", "right"] as const;
 export const FONT_STYLE_OPTIONS = ["normal", "italic"] as const;
 export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
 export const EDGE_ENTRANCE_ANIMATIONS = ["none", "fade", "draw"] as const;
+export const EDGE_ANCHOR_OPTIONS = [
+  "auto",
+  "top",
+  "right",
+  "bottom",
+  "left",
+] as const;
+export const EDGE_ROUTE_OPTIONS = ["curve", "straight", "elbow"] as const;
 
 export type NodeTransition = (typeof NODE_TRANSITIONS)[number];
 export type EntranceAnimation = (typeof ENTRANCE_ANIMATIONS)[number];
@@ -26,6 +34,8 @@ export type FontStyle = (typeof FONT_STYLE_OPTIONS)[number];
 export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
 export type EdgeEntranceAnimation =
   (typeof EDGE_ENTRANCE_ANIMATIONS)[number];
+export type EdgeAnchor = (typeof EDGE_ANCHOR_OPTIONS)[number];
+export type EdgeRoute = (typeof EDGE_ROUTE_OPTIONS)[number];
 
 export interface TextShadowStyle {
   enabled: boolean;
@@ -98,8 +108,6 @@ export interface TextNode extends BaseNode {
   typography: Typography;
 }
 
-export type EdgeAnchor = "auto" | "top" | "right" | "bottom" | "left";
-
 export interface CanvasEdge {
   id: string;
   type: "edge";
@@ -112,6 +120,7 @@ export interface CanvasEdge {
   dashed: boolean;
   arrowStart: boolean;
   arrowEnd: boolean;
+  route: EdgeRoute;
   curve: number;
   opacity: number;
   zIndex: number;
@@ -223,6 +232,7 @@ export const DEFAULT_EDGE: CanvasEdge = {
   dashed: false,
   arrowStart: false,
   arrowEnd: true,
+  route: "curve",
   curve: 0.32,
   opacity: 1,
   zIndex: 0,

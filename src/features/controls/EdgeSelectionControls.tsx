@@ -1,10 +1,14 @@
 import { useControls } from "leva";
 import { useRef } from "react";
 import {
+  EDGE_ANCHOR_OPTIONS,
   EDGE_ENTRANCE_ANIMATIONS,
+  EDGE_ROUTE_OPTIONS,
   NODE_TRANSITIONS,
   type CanvasEdge,
+  type EdgeAnchor,
   type EdgeEntranceAnimation,
+  type EdgeRoute,
   type NodeTransition,
 } from "../../core/nodes";
 import {
@@ -47,6 +51,18 @@ export function EdgeSelectionControls({
   const arrowEnd = getSharedValue(
     edges.map((edge) => edge.arrowEnd),
     true,
+  );
+  const sourceAnchor = getSharedValue<EdgeAnchor>(
+    edges.map((edge) => edge.sourceAnchor ?? "auto"),
+    "auto",
+  );
+  const targetAnchor = getSharedValue<EdgeAnchor>(
+    edges.map((edge) => edge.targetAnchor ?? "auto"),
+    "auto",
+  );
+  const route = getSharedValue<EdgeRoute>(
+    edges.map((edge) => edge.route ?? "curve"),
+    "curve",
   );
   const curve = getSharedValue(
     edges.map((edge) => edge.curve),
@@ -201,6 +217,54 @@ export function EdgeSelectionControls({
         onChange: (nextValue: boolean, _: string, context: LevaOnChangeContext) => {
           if (shouldIgnoreLevaChange(context)) return;
           updateSelectedEdges((edge) => ({ ...edge, arrowEnd: nextValue }), {
+            commitHistory: false,
+          });
+        },
+      },
+      sourceAnchor: {
+        options: [...EDGE_ANCHOR_OPTIONS],
+        value: sourceAnchor.value,
+        hint: sourceAnchor.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedEdges();
+          endEdit();
+        },
+        onChange: (nextValue: EdgeAnchor, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedEdges((edge) => ({ ...edge, sourceAnchor: nextValue }), {
+            commitHistory: false,
+          });
+        },
+      },
+      targetAnchor: {
+        options: [...EDGE_ANCHOR_OPTIONS],
+        value: targetAnchor.value,
+        hint: targetAnchor.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedEdges();
+          endEdit();
+        },
+        onChange: (nextValue: EdgeAnchor, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedEdges((edge) => ({ ...edge, targetAnchor: nextValue }), {
+            commitHistory: false,
+          });
+        },
+      },
+      route: {
+        options: [...EDGE_ROUTE_OPTIONS],
+        value: route.value,
+        hint: route.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedEdges();
+          endEdit();
+        },
+        onChange: (nextValue: EdgeRoute, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedEdges((edge) => ({ ...edge, route: nextValue }), {
             commitHistory: false,
           });
         },
@@ -369,6 +433,12 @@ export function EdgeSelectionControls({
       arrowStart.mixed,
       arrowEnd.value,
       arrowEnd.mixed,
+      sourceAnchor.value,
+      sourceAnchor.mixed,
+      targetAnchor.value,
+      targetAnchor.mixed,
+      route.value,
+      route.mixed,
       curve.value,
       curve.mixed,
       opacity.value,
@@ -392,6 +462,9 @@ export function EdgeSelectionControls({
       dashed: dashed.value,
       arrowStart: arrowStart.value,
       arrowEnd: arrowEnd.value,
+      sourceAnchor: sourceAnchor.value,
+      targetAnchor: targetAnchor.value,
+      route: route.value,
       curve: curve.mixed ? 0 : curve.value,
       opacity: opacity.mixed ? 0 : opacity.value,
       zIndex: zIndex.mixed ? 0 : zIndex.value,

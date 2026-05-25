@@ -289,6 +289,7 @@ export function CanvasNodeItem({
 
   return (
     <motion.div
+      data-node-id={node.id}
       ref={(element) => {
         itemRef.current = element;
         setNodeRef(node.id, element);
