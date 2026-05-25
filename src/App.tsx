@@ -502,11 +502,15 @@ export default function App() {
             <Crosshair size={13} />
             <span>{showOriginAxes ? "Axis On" : "Axis Off"}</span>
           </button>
-          <div className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-black/35 px-3 text-[11px] font-semibold tracking-[0.08em] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="inline-flex h-9 items-center gap-2 px-3 text-[11px] font-semibold tracking-[0.08em] text-white/70 w-0 whitespace-nowrap">
             <span className="text-white/40">PAN</span>
-            <span className="font-mono text-white/85">X {viewport.x.toFixed(0)}</span>
+            <span className="font-mono text-white/85">
+              X {viewport.x.toFixed(0)}
+            </span>
             <span className="text-white/30">/</span>
-            <span className="font-mono text-white/85">Y {viewport.y.toFixed(0)}</span>
+            <span className="font-mono text-white/85">
+              Y {viewport.y.toFixed(0)}
+            </span>
           </div>
         </div>
 
