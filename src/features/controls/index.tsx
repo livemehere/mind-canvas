@@ -9,6 +9,7 @@ import { RectSelectionControls } from "./RectSelectionControls";
 import { TextSelectionControls } from "./TextSelectionControls";
 import {
   type CanvasSize,
+  type CanvasViewportState,
   type UpdateSelectedNodes,
 } from "./types";
 
@@ -16,6 +17,7 @@ interface Props {
   nodes: CanvasNode[];
   updateSelectedNodes: UpdateSelectedNodes;
   canvasSize: CanvasSize;
+  viewport: CanvasViewportState;
   linkedNodeIds: string[];
   onDetachLinkedNodes: () => void;
 }
@@ -24,6 +26,7 @@ export function SelectedNodeControls({
   nodes,
   updateSelectedNodes,
   canvasSize,
+  viewport,
   linkedNodeIds,
   onDetachLinkedNodes,
 }: Props) {
@@ -47,6 +50,7 @@ export function SelectedNodeControls({
         nodes={nodes}
         updateSelectedNodes={updateSelectedNodes}
         canvasSize={canvasSize}
+        viewport={viewport}
       />
       <BaseSelectionControls
         key={`base:${selectionKey}`}

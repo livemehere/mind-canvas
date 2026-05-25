@@ -19,6 +19,7 @@ import { type CanvasToolId } from "./types";
 import { SelectedNodeControls } from "../../features/controls";
 import {
   type CanvasSize,
+  type CanvasViewportState,
   type UpdateSelectedNodesOptions,
 } from "../../features/controls/types";
 import {
@@ -34,6 +35,20 @@ export interface CanvasViewport {
   y: number;
   scale: number;
 }
+
+export interface CanvasFocusRequest {
+  token: number;
+  nodeIds: string[];
+  fitPercent: number;
+}
+
+const toCanvasViewportState = (
+  viewport: CanvasViewport,
+): CanvasViewportState => ({
+  x: viewport.x,
+  y: viewport.y,
+  scale: viewport.scale,
+});
 
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
@@ -55,6 +70,8 @@ export interface CanvasSurfaceProps {
   viewport?: CanvasViewport;
   onViewportChange?: (nextViewport: CanvasViewport) => void;
   showOriginAxes?: boolean;
+  focusRequest?: CanvasFocusRequest | null;
+  resetToOriginToken?: number;
 }
 
 export function CanvasSurface({
@@ -74,6 +91,8 @@ export function CanvasSurface({
   viewport: controlledViewport,
   onViewportChange,
   showOriginAxes = !viewOnly,
+  focusRequest = null,
+  resetToOriginToken,
 }: CanvasSurfaceProps) {
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 3;
@@ -89,8 +108,14 @@ export function CanvasSurface({
   const panPointerIdRef = useRef<number | null>(null);
   const panStartClientRef = useRef<Position | null>(null);
   const panStartViewportRef = useRef<{ x: number; y: number } | null>(null);
-  const [measuredCanvasSize, setMeasuredCanvasSize] =
-    useState<CanvasSize>(canvasSize);
+  const focusAnimationFrameRef = useRef<number | null>(null);
+  const latestFocusTokenRef = useRef<number | null>(null);
+  const hasInitializedOriginRef = useRef(false);
+  const previousResetTokenRef = useRef<number | undefined>(undefined);
+  const [measuredCanvasSize, setMeasuredCanvasSize] = useState<CanvasSize>({
+    width: 0,
+    height: 0,
+  });
   const [uncontrolledViewport, setUncontrolledViewport] =
     useState<CanvasViewport>({ x: 0, y: 0, scale: 1 });
   const viewport = controlledViewport ?? uncontrolledViewport;
@@ -197,6 +222,155 @@ export function CanvasSurface({
 
     onViewportChange?.(nextViewport);
   };
+
+  const getOriginCenteredViewport = (): CanvasViewport => ({
+    x: measuredCanvasSize.width / 2,
+    y: measuredCanvasSize.height / 2,
+    scale: 1,
+  });
+
+  useEffect(() => {
+    if (viewOnly || hasInitializedOriginRef.current) {
+      return;
+    }
+
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    updateViewport({
+      x: rect.width / 2,
+      y: rect.height / 2,
+      scale: 1,
+    });
+    hasInitializedOriginRef.current = true;
+  }, [updateViewport, viewOnly]);
+
+  useEffect(() => {
+    return () => {
+      if (focusAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(focusAnimationFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof resetToOriginToken !== "number" || viewOnly) {
+      return;
+    }
+
+    if (previousResetTokenRef.current === undefined) {
+      previousResetTokenRef.current = resetToOriginToken;
+      return;
+    }
+
+    if (previousResetTokenRef.current === resetToOriginToken) {
+      return;
+    }
+
+    previousResetTokenRef.current = resetToOriginToken;
+    updateViewport(getOriginCenteredViewport());
+  }, [measuredCanvasSize.height, measuredCanvasSize.width, resetToOriginToken, viewOnly]);
+
+  useEffect(() => {
+    if (!focusRequest || focusRequest.nodeIds.length === 0 || !containerRef.current) {
+      return;
+    }
+
+    if (latestFocusTokenRef.current === focusRequest.token) {
+      return;
+    }
+    latestFocusTokenRef.current = focusRequest.token;
+
+    const targetElements = focusRequest.nodeIds
+      .map((nodeId) => nodeRefs.current[nodeId])
+      .filter((element): element is HTMLDivElement => element !== null);
+
+    if (targetElements.length === 0) {
+      return;
+    }
+
+    const worldRect = containerRef.current.getBoundingClientRect();
+    const boxes = targetElements.map((element) => element.getBoundingClientRect());
+
+    const left = Math.min(...boxes.map((rect) => rect.left));
+    const right = Math.max(...boxes.map((rect) => rect.right));
+    const top = Math.min(...boxes.map((rect) => rect.top));
+    const bottom = Math.max(...boxes.map((rect) => rect.bottom));
+
+    const worldLeft = (left - worldRect.left - viewport.x) / viewport.scale;
+    const worldRight = (right - worldRect.left - viewport.x) / viewport.scale;
+    const worldTop = (top - worldRect.top - viewport.y) / viewport.scale;
+    const worldBottom = (bottom - worldRect.top - viewport.y) / viewport.scale;
+
+    const worldWidth = Math.max(1, worldRight - worldLeft);
+    const worldHeight = Math.max(1, worldBottom - worldTop);
+    const worldCenterX = (worldLeft + worldRight) / 2;
+    const worldCenterY = (worldTop + worldBottom) / 2;
+
+    const fitRatio = Math.max(0.01, Math.min(1, focusRequest.fitPercent / 100));
+    const targetScale = Math.min(
+      MAX_ZOOM,
+      Math.max(
+        MIN_ZOOM,
+        Math.min(
+          (measuredCanvasSize.width * fitRatio) / worldWidth,
+          (measuredCanvasSize.height * fitRatio) / worldHeight,
+        ),
+      ),
+    );
+
+    const targetViewport: CanvasViewport = {
+      x: measuredCanvasSize.width / 2 - worldCenterX * targetScale,
+      y: measuredCanvasSize.height / 2 - worldCenterY * targetScale,
+      scale: targetScale,
+    };
+
+    if (focusAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusAnimationFrameRef.current);
+      focusAnimationFrameRef.current = null;
+    }
+
+    const lerpFactor = 0.18;
+    const snapThreshold = 0.35;
+
+    const animate = () => {
+      updateViewport((current) => {
+        const nextX = current.x + (targetViewport.x - current.x) * lerpFactor;
+        const nextY = current.y + (targetViewport.y - current.y) * lerpFactor;
+        const nextScale =
+          current.scale + (targetViewport.scale - current.scale) * lerpFactor;
+
+        const delta =
+          Math.abs(targetViewport.x - nextX) +
+          Math.abs(targetViewport.y - nextY) +
+          Math.abs(targetViewport.scale - nextScale) * 100;
+
+        if (delta < snapThreshold) {
+          focusAnimationFrameRef.current = null;
+          return targetViewport;
+        }
+
+        focusAnimationFrameRef.current = window.requestAnimationFrame(animate);
+        return { x: nextX, y: nextY, scale: nextScale };
+      });
+    };
+
+    focusAnimationFrameRef.current = window.requestAnimationFrame(animate);
+  }, [
+    focusRequest,
+    measuredCanvasSize.height,
+    measuredCanvasSize.width,
+    viewport.scale,
+    viewport.x,
+    viewport.y,
+  ]);
 
   const updateSelectedNodes = (
     updater: (node: CanvasNode) => CanvasNode,
@@ -663,6 +837,7 @@ export function CanvasSurface({
           nodes={selectedNodes}
           updateSelectedNodes={updateSelectedNodes}
           canvasSize={measuredCanvasSize}
+          viewport={toCanvasViewportState(viewport)}
           linkedNodeIds={linkedNodeIds}
           onDetachLinkedNodes={onDetachLinkedNodes}
         />

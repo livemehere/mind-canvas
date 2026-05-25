@@ -12,10 +12,14 @@ import {
   type AlignAxis,
   type AlignMode,
 } from "./alignment";
-import { type SelectionControlsBaseProps } from "./types";
+import {
+  type CanvasViewportState,
+  type SelectionControlsBaseProps,
+} from "./types";
 
 interface Props extends SelectionControlsBaseProps {
   canvasSize: { width: number; height: number };
+  viewport: CanvasViewportState;
 }
 
 interface AlignAction {
@@ -75,6 +79,7 @@ export function AlignControls({
   nodes,
   updateSelectedNodes,
   canvasSize,
+  viewport,
 }: Props) {
   const runSelectionAlign = (axis: AlignAxis, mode: AlignMode) => {
     const alignedNodes = alignNodesToBounds(nodes, axis, mode);
@@ -84,7 +89,13 @@ export function AlignControls({
   };
 
   const runCanvasAlign = (axis: AlignAxis, mode: AlignMode) => {
-    const alignedNodes = alignNodesToCanvas(nodes, canvasSize, axis, mode);
+    const alignedNodes = alignNodesToCanvas(
+      nodes,
+      canvasSize,
+      viewport,
+      axis,
+      mode,
+    );
     const alignedNodeMap = new Map(alignedNodes.map((node) => [node.id, node]));
 
     updateSelectedNodes((node) => alignedNodeMap.get(node.id) ?? node);

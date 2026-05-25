@@ -1,4 +1,5 @@
 import { type CanvasNode, type Position } from "../../core/nodes";
+import { type CanvasViewportState } from "./types";
 
 export type AlignAxis = "x" | "y";
 export type AlignMode = "start" | "center" | "end";
@@ -109,19 +110,29 @@ export const alignNodesToBounds = (
 export const alignNodesToCanvas = (
   nodes: CanvasNode[],
   canvasSize: { width: number; height: number },
+  viewport: CanvasViewportState,
   axis: AlignAxis,
   mode: AlignMode,
 ) => {
+  const canvasWorldBounds = {
+    left: (0 - viewport.x) / viewport.scale,
+    right: (canvasSize.width - viewport.x) / viewport.scale,
+    top: (0 - viewport.y) / viewport.scale,
+    bottom: (canvasSize.height - viewport.y) / viewport.scale,
+    centerX: (canvasSize.width / 2 - viewport.x) / viewport.scale,
+    centerY: (canvasSize.height / 2 - viewport.y) / viewport.scale,
+  };
+
   return nodes.map((node) => {
     const bounds = getNodeBounds(node);
 
     if (axis === "x") {
       const nextCenterY =
         mode === "start"
-          ? (bounds.bottom - bounds.top) / 2
+          ? canvasWorldBounds.top + (bounds.bottom - bounds.top) / 2
           : mode === "center"
-            ? canvasSize.height / 2
-            : canvasSize.height - (bounds.bottom - bounds.top) / 2;
+            ? 0
+            : canvasWorldBounds.bottom - (bounds.bottom - bounds.top) / 2;
 
       return moveNodeCenterTo(node, {
         x: bounds.centerX,
@@ -131,10 +142,10 @@ export const alignNodesToCanvas = (
 
     const nextCenterX =
       mode === "start"
-        ? (bounds.right - bounds.left) / 2
+        ? canvasWorldBounds.left + (bounds.right - bounds.left) / 2
         : mode === "center"
-          ? canvasSize.width / 2
-          : canvasSize.width - (bounds.right - bounds.left) / 2;
+          ? 0
+          : canvasWorldBounds.right - (bounds.right - bounds.left) / 2;
 
     return moveNodeCenterTo(node, {
       x: nextCenterX,

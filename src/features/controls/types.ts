@@ -42,6 +42,12 @@ export interface CanvasSize {
   height: number;
 }
 
+export interface CanvasViewportState {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 export interface TypeSelectionControlsProps<TNode extends CanvasNode> {
   nodes: TNode[];
   updateSelectedNodes: UpdateSelectedNodes;

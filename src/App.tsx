@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Leva } from "leva";
-import { Crosshair, Eraser, Home, Save, Trash2, Upload } from "lucide-react";
+import {
+  Crosshair,
+  Eraser,
+  Home,
+  LocateFixed,
+  Save,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   CanvasSurface,
+  type CanvasFocusRequest,
   type CanvasViewport,
 } from "./components/canvas/CanvasSurface";
 import { CanvasToolbar } from "./components/canvas/CanvasToolbar";
@@ -84,6 +93,11 @@ export default function App() {
     scale: 1,
   });
   const [showOriginAxes, setShowOriginAxes] = useState(true);
+  const [focusFitPercent, setFocusFitPercent] = useState(50);
+  const [focusRequest, setFocusRequest] = useState<CanvasFocusRequest | null>(
+    null,
+  );
+  const [resetToOriginToken, setResetToOriginToken] = useState(0);
   const {
     step,
     snapShot,
@@ -341,8 +355,25 @@ export default function App() {
   };
 
   const resetViewportToOrigin = () => {
-    setViewport({ x: 0, y: 0, scale: 1 });
+    setResetToOriginToken((prev) => prev + 1);
     toast.success("Viewport reset to origin");
+  };
+
+  const focusSelectedNodes = () => {
+    if (activeNodeIds.length === 0) {
+      toast.warning("Select one or more nodes to focus");
+      return;
+    }
+
+    setFocusRequest({
+      token: Date.now(),
+      nodeIds: activeNodeIds,
+      fitPercent: focusFitPercent,
+    });
+  };
+
+  const preventButtonFocus = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
   };
 
   useCanvasHotkeys({
@@ -460,6 +491,7 @@ export default function App() {
               activeNodeIds={[]}
               entranceNodeIds={[]}
               linkedNodeIds={[]}
+              viewport={viewport}
               showOriginAxes={false}
             />
           ) : null}
@@ -480,6 +512,8 @@ export default function App() {
             viewport={viewport}
             onViewportChange={setViewport}
             showOriginAxes={showOriginAxes}
+            focusRequest={focusRequest}
+            resetToOriginToken={resetToOriginToken}
           />
         </div>
 
@@ -487,6 +521,8 @@ export default function App() {
           <button
             type="button"
             onClick={resetViewportToOrigin}
+            onMouseDown={preventButtonFocus}
+            tabIndex={-1}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-neutral-950/85 px-3 text-xs font-medium text-white/80 shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition hover:bg-white/12 hover:text-white"
             title="Reset pan/zoom to origin (Cmd/Ctrl+0)"
           >
@@ -496,6 +532,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => setShowOriginAxes((prev) => !prev)}
+            onMouseDown={preventButtonFocus}
+            tabIndex={-1}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-neutral-950/85 px-3 text-xs font-medium text-white/80 shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition hover:bg-white/12 hover:text-white"
             title={showOriginAxes ? "Hide origin axes" : "Show origin axes"}
           >
@@ -511,6 +549,38 @@ export default function App() {
             <span className="font-mono text-white/85">
               Y {viewport.y.toFixed(0)}
             </span>
+          </div>
+          <div className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-neutral-950/70 px-2 text-[11px] font-semibold tracking-[0.06em] text-white/75 shadow-[0_10px_32px_rgba(0,0,0,0.22)]">
+            <span className="px-1 text-white/45">FIT</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={focusFitPercent}
+              onChange={(event) => {
+                const value = Number.parseInt(event.target.value, 10);
+                if (Number.isNaN(value)) {
+                  setFocusFitPercent(0);
+                  return;
+                }
+
+                setFocusFitPercent(Math.max(0, Math.min(100, value)));
+              }}
+              className="h-6 w-12 rounded border border-white/15 bg-white/5 px-1 text-right font-mono text-xs text-white/90 outline-none transition focus:border-white/35"
+              title="Focus fit ratio (0-100%)"
+            />
+            <span className="text-white/45">%</span>
+            <button
+              type="button"
+              onClick={focusSelectedNodes}
+              onMouseDown={preventButtonFocus}
+              tabIndex={-1}
+              className="inline-flex h-7 items-center justify-center gap-1 rounded border border-white/10 bg-white/5 px-2 text-[10px] font-semibold text-white/80 transition hover:bg-white/12 hover:text-white"
+              title="Focus selected nodes"
+            >
+              <LocateFixed size={12} />
+              <span>Focus</span>
+            </button>
           </div>
         </div>
 
