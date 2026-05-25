@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Leva } from "leva";
 import { Eraser, Home, LocateFixed, Save, Trash2, Upload } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -10,10 +10,8 @@ import {
 import { CanvasToolbar } from "./components/canvas/CanvasToolbar";
 import { type CanvasToolId } from "./components/canvas/types";
 import {
-  type CanvasEdge,
   type CanvasNode,
   type Position,
-  type Snapshot,
 } from "./core/nodes";
 import {
   installLevaTextareaEnterBehavior,
@@ -23,11 +21,11 @@ import { isEditableElementFocused } from "./features/hotkeys/helpers";
 import {
   createRectNode,
   createTextNode,
-  regenerateNodeIds,
 } from "./features/nodes/helpers";
-import { offsetNodes } from "./features/snapshots/history";
 import { useCanvasHotkeys } from "./features/app/useCanvasHotkeys";
 import { useGlobalPasteHandler } from "./features/app/useGlobalPasteHandler";
+import { useCanvasSelectionActions } from "./features/app/useCanvasSelectionActions";
+import { useSnapshotStorage } from "./features/app/useSnapshotStorage";
 import { useSnapshotState } from "./features/app/useSnapshotState";
 import {
   HOTKEY_COPY,
@@ -52,59 +50,6 @@ import {
   HOTKEY_TOGGLE_SHORTCUT_HELP,
   HOTKEY_UNDO,
 } from "./features/hotkeys/keys";
-import {
-  readNodesFromClipboard,
-  writeNodesToClipboard,
-} from "./utils/clipboard";
-
-const SNAPSHOT_STORAGE_KEY = "mind-canvas:snapshots";
-
-interface SnapshotPayload {
-  step: number;
-  snapShot: Snapshot[];
-}
-
-const isSnapshotArray = (value: unknown): value is Snapshot[] => {
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  return value.every(
-    (snapshot) =>
-      typeof snapshot === "object" &&
-      snapshot !== null &&
-      Array.isArray((snapshot as { nodes?: unknown }).nodes),
-  );
-};
-
-const normalizeSnapshotPayload = (value: unknown): SnapshotPayload | null => {
-  if (isSnapshotArray(value)) {
-    return {
-      step: 0,
-      snapShot: value,
-    };
-  }
-
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-
-  const record = value as {
-    step?: unknown;
-    snapShot?: unknown;
-    snapshots?: unknown;
-  };
-  const snapshots = record.snapShot ?? record.snapshots;
-  if (!isSnapshotArray(snapshots)) {
-    return null;
-  }
-
-  return {
-    step: typeof record.step === "number" ? record.step : 0,
-    snapShot: snapshots,
-  };
-};
-
 export default function App() {
   const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
   const [viewport, setViewport] = useState<CanvasViewport>({
@@ -157,6 +102,18 @@ export default function App() {
   } = useSnapshotState();
 
   useEffect(() => installLevaTextareaEnterBehavior(), []);
+
+  const {
+    saveSnapshotsToLocalStorage,
+    loadSnapshotsFromJson,
+    loadSnapshotsFromLocalStorage,
+    clearSavedSnapshots,
+  } = useSnapshotStorage({
+    step,
+    snapShot,
+    hydrateSnapshots,
+    clearSnapshots,
+  });
 
   const createRect = (x: number, y: number) => {
     const node = createRectNode(x, y);
@@ -215,265 +172,27 @@ export default function App() {
     }
   };
 
-  const selectedNodes = useMemo(
-    () => currentNodes.filter((node) => activeNodeIds.includes(node.id)),
-    [activeNodeIds, currentNodes],
-  );
-  const selectedEdges = useMemo(
-    () => currentEdges.filter((edge) => activeEdgeIds.includes(edge.id)),
-    [activeEdgeIds, currentEdges],
-  );
-
-  const linkedNodeIds = useMemo(() => {
-    if (activeNodeIds.length === 0) {
-      return [];
-    }
-
-    const activeNodeIdSet = new Set(activeNodeIds);
-
-    return currentNodes
-      .filter((node) => activeNodeIdSet.has(node.id))
-      .filter((node) =>
-        snapShot.some(
-          (snapshot, snapshotIndex) =>
-            snapshotIndex !== step &&
-            snapshot.nodes.some((snapshotNode) => snapshotNode.id === node.id),
-        ),
-      )
-      .map((node) => node.id);
-  }, [activeNodeIds, currentNodes, snapShot, step]);
-
-  const copySelectedNodes = async () => {
-    if (selectedNodes.length === 0 && selectedEdges.length === 0) {
-      return false;
-    }
-
-    const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id));
-    const internalEdges = currentEdges.filter(
-      (edge) =>
-        selectedNodeIdSet.has(edge.sourceNodeId) &&
-        selectedNodeIdSet.has(edge.targetNodeId),
-    );
-    const mergedEdges = [
-      ...internalEdges,
-      ...selectedEdges.filter(
-        (edge) => !internalEdges.some((internalEdge) => internalEdge.id === edge.id),
-      ),
-    ];
-
-    await writeNodesToClipboard(selectedNodes, mergedEdges);
-    toast.success("Copied selection");
-    return true;
-  };
-
-  const cutSelectedNodes = async () => {
-    if (selectedNodes.length === 0 && selectedEdges.length === 0) {
-      return;
-    }
-
-    const copied = await copySelectedNodes();
-    if (!copied) {
-      return;
-    }
-
-    if (selectedNodes.length > 0) {
-      removeNodes(selectedNodes.map((node) => node.id));
-    }
-    if (selectedEdges.length > 0) {
-      removeEdges(selectedEdges.map((edge) => edge.id));
-    }
-    setActiveNodeIds([]);
-    setActiveEdgeIds([]);
-    toast.success("Cut selection");
-  };
-
-  const pasteClipboardNodes = async () => {
-    const clipboardNodes = await readNodesFromClipboard();
-
-    if (!clipboardNodes || clipboardNodes.nodes.length === 0) {
-      return false;
-    }
-
-    const pastedNodes = offsetNodes(regenerateNodeIds(clipboardNodes.nodes), {
-      x: 24,
-      y: 24,
-    });
-    const nodeIdMap = new Map<string, string>();
-    clipboardNodes.nodes.forEach((node, index) => {
-      nodeIdMap.set(node.id, pastedNodes[index].id);
-    });
-    const pastedEdges: CanvasEdge[] = [];
-    clipboardNodes.edges.forEach((edge) => {
-      const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
-      const targetNodeId = nodeIdMap.get(edge.targetNodeId);
-      if (!sourceNodeId || !targetNodeId) {
-        return;
-      }
-
-      pastedEdges.push({
-        ...edge,
-        id: window.crypto.randomUUID(),
-        sourceNodeId,
-        targetNodeId,
-      });
-    });
-    setCurrentSnapShotNodes(
-      [...currentNodes, ...pastedNodes],
-      [...currentEdges, ...pastedEdges],
-    );
-    setActiveNodeIds(pastedNodes.map((node) => node.id));
-    setActiveEdgeIds(pastedEdges.map((edge) => edge.id));
-    toast.success("Pasted selection");
-    return true;
-  };
-
-  const duplicateSelectedNodes = () => {
-    if (selectedNodes.length === 0) {
-      return;
-    }
-
-    const duplicatedNodes = offsetNodes(regenerateNodeIds(selectedNodes), {
-      x: 24,
-      y: 24,
-    });
-
-    const sourceNodeIdSet = new Set(selectedNodes.map((node) => node.id));
-    const nodeIdMap = new Map<string, string>();
-    selectedNodes.forEach((node, index) => {
-      nodeIdMap.set(node.id, duplicatedNodes[index].id);
-    });
-    const duplicatedEdges = currentEdges
-      .filter(
-        (edge) =>
-          sourceNodeIdSet.has(edge.sourceNodeId) &&
-          sourceNodeIdSet.has(edge.targetNodeId),
-      )
-      .map((edge) => ({
-        ...edge,
-        id: window.crypto.randomUUID(),
-        sourceNodeId: nodeIdMap.get(edge.sourceNodeId) ?? edge.sourceNodeId,
-        targetNodeId: nodeIdMap.get(edge.targetNodeId) ?? edge.targetNodeId,
-      }));
-
-    setCurrentSnapShotNodes(
-      [...currentNodes, ...duplicatedNodes],
-      [...currentEdges, ...duplicatedEdges],
-    );
-    setActiveNodeIds(duplicatedNodes.map((node) => node.id));
-    setActiveEdgeIds(duplicatedEdges.map((edge) => edge.id));
-    toast.success("Duplicated nodes");
-  };
-
-  const detachLinkedSelectedNodes = () => {
-    if (linkedNodeIds.length === 0) {
-      toast.warning("No linked nodes to detach");
-      return;
-    }
-
-    const detachedNodeIdMap = new Map(
-      linkedNodeIds.map(
-        (nodeId) => [nodeId, window.crypto.randomUUID()] as const,
-      ),
-    );
-
-    const nextNodes = currentNodes.map((node) => {
-        const detachedNodeId = detachedNodeIdMap.get(node.id);
-        if (!detachedNodeId) {
-          return node;
-        }
-
-        return {
-          ...node,
-          id: detachedNodeId,
-        };
-      });
-    const nextEdges = currentEdges.map((edge) => ({
-      ...edge,
-      sourceNodeId: detachedNodeIdMap.get(edge.sourceNodeId) ?? edge.sourceNodeId,
-      targetNodeId: detachedNodeIdMap.get(edge.targetNodeId) ?? edge.targetNodeId,
-    }));
-    setCurrentSnapShotNodes(nextNodes, nextEdges);
-    setActiveNodeIds(
-      activeNodeIds.map((nodeId) => detachedNodeIdMap.get(nodeId) ?? nodeId),
-    );
-    toast.success(
-      linkedNodeIds.length === 1 ? "Node detached" : "Nodes detached",
-    );
-  };
-
-  const saveSnapshotsToLocalStorage = () => {
-    const payload: SnapshotPayload = {
-      step,
-      snapShot,
-    };
-
-    localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(payload));
-    toast.success("Saved to localStorage");
-  };
-
-  const loadSnapshotsFromJson = () => {
-    const initialValue = localStorage.getItem(SNAPSHOT_STORAGE_KEY) ?? "";
-    const input = window.prompt("Paste snapshot JSON", initialValue);
-    if (input === null) {
-      return;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(input);
-    } catch {
-      toast.error("Invalid JSON");
-      return;
-    }
-
-    const payload = normalizeSnapshotPayload(parsed);
-    if (!payload || payload.snapShot.length === 0) {
-      toast.error("Invalid snapshot payload");
-      return;
-    }
-
-    hydrateSnapshots(payload.snapShot, payload.step);
-    localStorage.setItem(
-      SNAPSHOT_STORAGE_KEY,
-      JSON.stringify({
-        step: payload.step,
-        snapShot: payload.snapShot,
-      } satisfies SnapshotPayload),
-    );
-    toast.success("Loaded snapshots from JSON");
-  };
-
-  const loadSnapshotsFromLocalStorage = (options?: { showToast?: boolean }) => {
-    const raw = localStorage.getItem(SNAPSHOT_STORAGE_KEY);
-    if (!raw) {
-      return false;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return false;
-    }
-
-    const payload = normalizeSnapshotPayload(parsed);
-    if (!payload || payload.snapShot.length === 0) {
-      return false;
-    }
-
-    hydrateSnapshots(payload.snapShot, payload.step);
-    if (options?.showToast) {
-      toast.success("Loaded snapshots from localStorage");
-    }
-
-    return true;
-  };
-
-  const clearSavedSnapshots = () => {
-    localStorage.removeItem(SNAPSHOT_STORAGE_KEY);
-    clearSnapshots();
-    toast.success("Cleared localStorage snapshots");
-  };
+  const {
+    selectedNodes,
+    linkedNodeIds,
+    copySelectedNodes,
+    cutSelectedNodes,
+    pasteClipboardNodes,
+    duplicateSelectedNodes,
+    detachLinkedSelectedNodes,
+  } = useCanvasSelectionActions({
+    currentNodes,
+    currentEdges,
+    snapShot,
+    step,
+    activeNodeIds,
+    activeEdgeIds,
+    setActiveNodeIds,
+    setActiveEdgeIds,
+    setCurrentSnapShotNodes,
+    removeNodes,
+    removeEdges,
+  });
 
   const resetViewportToOrigin = () => {
     setResetToOriginToken((prev) => prev + 1);
