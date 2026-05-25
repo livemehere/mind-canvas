@@ -1,14 +1,13 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { type CanvasEdge, type CanvasNode } from "../../core/nodes";
-import { offsetNodes } from "../snapshots/history";
-import { regenerateNodeIds } from "../nodes/helpers";
 import {
   createImageRectNode,
   getImageFileFromClipboardEvent,
   readImageDataUrl,
   readNodesFromClipboardEvent,
 } from "../../utils/clipboard";
+import { pasteClipboardToSnapshot } from "./pasteClipboard";
 
 interface UseGlobalPasteHandlerOptions {
   commitNodesToStep: (
@@ -82,35 +81,15 @@ export const useGlobalPasteHandler = ({
       const eventClipboardNodes = readNodesFromClipboardEvent(event);
       if (eventClipboardNodes && eventClipboardNodes.nodes.length > 0) {
         event.preventDefault();
-        const pastedNodes = offsetNodes(
-          regenerateNodeIds(eventClipboardNodes.nodes),
-          {
-            x: 24,
-            y: 24,
-          },
-        );
-        const nodeIdMap = new Map<string, string>();
-        eventClipboardNodes.nodes.forEach((node, index) => {
-          nodeIdMap.set(node.id, pastedNodes[index].id);
-        });
-        const pastedEdges: CanvasEdge[] = [];
-        eventClipboardNodes.edges.forEach((edge) => {
-          const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
-          const targetNodeId = nodeIdMap.get(edge.targetNodeId);
-          if (!sourceNodeId || !targetNodeId) {
-            return;
-          }
-
-          pastedEdges.push({
-            ...edge,
-            id: window.crypto.randomUUID(),
-            sourceNodeId,
-            targetNodeId,
-          });
-        });
         const { step: activeStep, snapShot: snapshots } = getLatestState();
         const nodes = snapshots[activeStep].nodes;
         const edges = snapshots[activeStep].edges;
+        const { appendedNodes: pastedNodes, appendedEdges: pastedEdges } =
+          pasteClipboardToSnapshot({
+            clipboard: eventClipboardNodes,
+            currentNodes: nodes,
+            currentEdges: edges,
+          });
         commitNodesToStep(activeStep, [...nodes, ...pastedNodes], [
           ...edges,
           ...pastedEdges,

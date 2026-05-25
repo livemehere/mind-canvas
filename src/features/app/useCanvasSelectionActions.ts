@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { toast } from "sonner";
 import { type CanvasEdge, type CanvasNode, type Snapshot } from "../../core/nodes";
+import { readNodesFromClipboard, writeNodesToClipboard } from "../../utils/clipboard";
 import { regenerateNodeIds } from "../nodes/helpers";
 import { offsetNodes } from "../snapshots/history";
-import { readNodesFromClipboard, writeNodesToClipboard } from "../../utils/clipboard";
+import { pasteClipboardToSnapshot } from "./pasteClipboard";
 
 interface UseCanvasSelectionActionsOptions {
   currentNodes: CanvasNode[];
@@ -111,29 +112,12 @@ export const useCanvasSelectionActions = ({
       return false;
     }
 
-    const pastedNodes = offsetNodes(regenerateNodeIds(clipboardNodes.nodes), {
-      x: 24,
-      y: 24,
-    });
-    const nodeIdMap = new Map<string, string>();
-    clipboardNodes.nodes.forEach((node, index) => {
-      nodeIdMap.set(node.id, pastedNodes[index].id);
-    });
-    const pastedEdges: CanvasEdge[] = [];
-    clipboardNodes.edges.forEach((edge) => {
-      const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
-      const targetNodeId = nodeIdMap.get(edge.targetNodeId);
-      if (!sourceNodeId || !targetNodeId) {
-        return;
-      }
-
-      pastedEdges.push({
-        ...edge,
-        id: window.crypto.randomUUID(),
-        sourceNodeId,
-        targetNodeId,
+    const { appendedNodes: pastedNodes, appendedEdges: pastedEdges } =
+      pasteClipboardToSnapshot({
+        clipboard: clipboardNodes,
+        currentNodes,
+        currentEdges,
       });
-    });
     setCurrentSnapShotNodes(
       [...currentNodes, ...pastedNodes],
       [...currentEdges, ...pastedEdges],
