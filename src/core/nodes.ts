@@ -19,7 +19,6 @@ export const FONT_STYLE_OPTIONS = ["normal", "italic"] as const;
 export const RECT_BACKGROUND_SIZE_OPTIONS = ["cover", "contain"] as const;
 export const BOX_CONTENT_KIND_OPTIONS = [
   "plain",
-  "image",
   "svg",
   "component",
 ] as const;
@@ -86,10 +85,10 @@ export interface BaseNode {
   transition: NodeTransition;
   entranceAnimation: EntranceAnimation;
   replayEntranceOnStepChange: boolean;
-  bgColor: string;
   radius: number;
   borderWidth: number;
   borderColor: string;
+  borderEnabled: boolean;
 }
 
 export interface BoxNode extends BaseNode {
@@ -101,7 +100,7 @@ export interface BoxNode extends BaseNode {
   backgroundImage?: string;
   backgroundSize: RectBackgroundSize;
   backgroundEnabled: boolean;
-  borderEnabled: boolean;
+  bgColor: string;
   contentKind: BoxContentKind;
   boxShadow: BoxShadowStyle;
   content: string;
@@ -116,6 +115,8 @@ export interface TextNode extends BaseNode {
   type: "text";
   text: string;
   color: string;
+  bgColor: string;
+  backgroundEnabled: boolean;
   textShadow: TextShadowStyle;
   paddingX: number;
   paddingY: number;
@@ -219,21 +220,17 @@ export const normalizeCanvasNode = (value: unknown): CanvasNode => {
   }
 
   if (node.type === "rect" || node.type === "box") {
-    const hasBackgroundImage =
-      typeof node.backgroundImage === "string" && node.backgroundImage.length > 0;
     const normalizedContentKind =
       node.contentKind === "plain" ||
-      node.contentKind === "image" ||
       node.contentKind === "svg" ||
       node.contentKind === "component"
         ? node.contentKind
-        : hasBackgroundImage
-          ? "image"
-          : "plain";
+        : "plain";
 
     return {
       ...node,
       type: "box",
+      bgColor: typeof node.bgColor === "string" ? node.bgColor : "#ffffff",
       backgroundEnabled:
         typeof node.backgroundEnabled === "boolean" ? node.backgroundEnabled : true,
       borderEnabled:
@@ -249,6 +246,19 @@ export const normalizeCanvasNode = (value: unknown): CanvasNode => {
         typeof node.componentProps === "object" && node.componentProps !== null
           ? (node.componentProps as Record<string, unknown>)
           : {},
+    } as CanvasNode;
+  }
+
+  if (node.type === "text") {
+    return {
+      ...node,
+      bgColor: typeof node.bgColor === "string" ? node.bgColor : "transparent",
+      backgroundEnabled:
+        typeof node.backgroundEnabled === "boolean"
+          ? node.backgroundEnabled
+          : true,
+      borderEnabled:
+        typeof node.borderEnabled === "boolean" ? node.borderEnabled : true,
     } as CanvasNode;
   }
 
@@ -272,9 +282,11 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   paddingX: 0,
   paddingY: 0,
   bgColor: "transparent",
+  backgroundEnabled: true,
   radius: 0,
   borderWidth: 0,
   borderColor: "#ffffff",
+  borderEnabled: true,
   typography: {
     fontSize: 64,
     fontFamily: "Inter, sans-serif",

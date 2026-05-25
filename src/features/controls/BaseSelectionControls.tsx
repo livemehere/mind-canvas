@@ -66,9 +66,9 @@ export function BaseSelectionControls({
     nodes.map((node) => node.borderWidth),
     0,
   );
-  const bgColor = getSharedValue(
-    nodes.map((node) => node.bgColor),
-    "#ffffff",
+  const borderEnabled = getSharedValue(
+    nodes.map((node) => node.borderEnabled),
+    true,
   );
   const radius = getSharedValue(
     nodes.map((node) => node.radius),
@@ -393,22 +393,25 @@ export function BaseSelectionControls({
           endEdit();
         },
       },
-      bgColor: {
-        value: bgColor.value,
-        hint: bgColor.mixed ? MIXED_HINT : undefined,
+      borderEnabled: {
+        value: borderEnabled.value,
+        hint: borderEnabled.mixed ? MIXED_HINT : undefined,
         onEditStart: startEdit,
         onEditEnd: () => {
           commitSelectedNodes();
           endEdit();
         },
         onChange: (
-          nextBgColor: string,
+          nextBorderEnabled: boolean,
           _: string,
           context: LevaOnChangeContext,
         ) => {
           if (shouldIgnoreLevaChange(context)) return;
           updateSelectedNodes(
-            (node) => ({ ...node, bgColor: nextBgColor }),
+            (node) => ({
+              ...node,
+              borderEnabled: nextBorderEnabled,
+            }),
             { commitHistory: false },
           );
         },
@@ -554,8 +557,8 @@ export function BaseSelectionControls({
       borderColor.mixed,
       borderWidth.value,
       borderWidth.mixed,
-      bgColor.value,
-      bgColor.mixed,
+      borderEnabled.value,
+      borderEnabled.mixed,
       radius.value,
       radius.mixed,
       transition.value,
@@ -578,7 +581,7 @@ export function BaseSelectionControls({
       zIndex: zIndex.mixed ? 0 : zIndex.value,
       borderColor: borderColor.value,
       borderWidth: borderWidth.mixed ? 0 : borderWidth.value,
-      bgColor: bgColor.value,
+      borderEnabled: borderEnabled.value,
       radius: radius.mixed ? 0 : radius.value,
       transition: transition.value,
       entranceAnimation: entranceAnimation.value,

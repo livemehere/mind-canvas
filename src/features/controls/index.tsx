@@ -7,7 +7,7 @@ import {
 import { AlignControls } from "./AlignControls";
 import { BaseSelectionControls } from "./BaseSelectionControls";
 import { EdgeSelectionControls } from "./EdgeSelectionControls";
-import { RectSelectionControls } from "./RectSelectionControls";
+import { BoxSelectionControls } from "./BoxSelectionControls";
 import { TextSelectionControls } from "./TextSelectionControls";
 import {
   type CanvasSize,
@@ -72,7 +72,7 @@ export function SelectedNodeControls({
         </>
       ) : null}
       {rectNodes.length > 0 ? (
-        <RectSelectionControls
+        <BoxSelectionControls
           key={`rect:${rectSelectionKey}`}
           nodes={rectNodes}
           updateSelectedNodes={updateSelectedNodes}

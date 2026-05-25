@@ -61,7 +61,6 @@ export const useGlobalPasteHandler = ({
               node.id === selectedRectNode.id
                 ? {
                     ...node,
-                    contentKind: "image",
                     backgroundEnabled: true,
                     backgroundImage,
                   }

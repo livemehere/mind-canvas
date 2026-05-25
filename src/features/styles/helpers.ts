@@ -216,7 +216,7 @@ export const getNodeStyle = (node: CanvasNode) => {
   switch (node.type) {
     case "box":
       const shouldRenderBackgroundImage =
-        node.contentKind === "image" &&
+        node.backgroundEnabled &&
         typeof node.backgroundImage === "string" &&
         node.backgroundImage.length > 0;
 
@@ -238,9 +238,11 @@ export const getNodeStyle = (node: CanvasNode) => {
       };
     case "text":
       return {
-        backgroundColor: node.bgColor,
+        backgroundColor: node.backgroundEnabled ? node.bgColor : "transparent",
         borderRadius: node.radius,
-        border: `${node.borderWidth}px solid ${node.borderColor}`,
+        border: node.borderEnabled
+          ? `${node.borderWidth}px solid ${node.borderColor}`
+          : "0px solid transparent",
         textShadow: getTextShadowStyle(
           node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE,
         ),

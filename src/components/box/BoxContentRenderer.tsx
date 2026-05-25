@@ -45,8 +45,6 @@ export function BoxContentRenderer({ node }: BoxContentRendererProps) {
   switch (node.contentKind) {
     case "plain":
       return node.content ? <div style={getRectContentStyle(node)}>{node.content}</div> : null;
-    case "image":
-      return null;
     case "svg":
       return <SvgContent node={node} />;
     case "component":

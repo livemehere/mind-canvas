@@ -37,6 +37,14 @@ export function TextSelectionControls({
     nodes.map((node) => node.color),
     "#ffffff",
   );
+  const bgColor = getSharedValue(
+    nodes.map((node) => node.bgColor),
+    "transparent",
+  );
+  const backgroundEnabled = getSharedValue(
+    nodes.map((node) => node.backgroundEnabled),
+    true,
+  );
   const paddingX = getSharedValue(
     nodes.map((node) => node.paddingX),
     0,
@@ -167,6 +175,50 @@ export function TextSelectionControls({
           updateSelectedNodes(
             (node) =>
               node.type === "text" ? { ...node, color: nextColor } : node,
+            { commitHistory: false },
+          );
+        },
+      },
+      bgColor: {
+        value: bgColor.value,
+        hint: bgColor.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextBgColor: string,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text" ? { ...node, bgColor: nextBgColor } : node,
+            { commitHistory: false },
+          );
+        },
+      },
+      backgroundEnabled: {
+        value: backgroundEnabled.value,
+        hint: backgroundEnabled.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextEnabled: boolean,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text"
+                ? { ...node, backgroundEnabled: nextEnabled }
+                : node,
             { commitHistory: false },
           );
         },
@@ -461,6 +513,10 @@ export function TextSelectionControls({
       text.mixed,
       color.value,
       color.mixed,
+      bgColor.value,
+      bgColor.mixed,
+      backgroundEnabled.value,
+      backgroundEnabled.mixed,
       paddingX.value,
       paddingX.mixed,
       paddingY.value,
@@ -486,6 +542,8 @@ export function TextSelectionControls({
     {
       text: text.mixed ? "" : text.value,
       color: color.value,
+      bgColor: bgColor.value,
+      backgroundEnabled: backgroundEnabled.value,
       paddingX: paddingX.mixed ? 0 : paddingX.value,
       paddingY: paddingY.mixed ? 0 : paddingY.value,
       textShadowEnabled: textShadowEnabled.value,

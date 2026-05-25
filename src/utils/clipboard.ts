@@ -176,7 +176,6 @@ export const createImageRectNode = async (
     ...DEFAULT_RECT_NODE,
     id: createId(),
     position,
-    contentKind: "image",
     size: {
       width: Math.round(imageSize.width * scale),
       height: Math.round(imageSize.height * scale),

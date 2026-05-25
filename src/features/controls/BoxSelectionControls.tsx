@@ -28,7 +28,7 @@ import {
   type TypeSelectionControlsProps,
 } from "./types";
 
-export function RectSelectionControls({
+export function BoxSelectionControls({
   nodes,
   updateSelectedNodes,
 }: TypeSelectionControlsProps<BoxNode>) {
@@ -46,6 +46,10 @@ export function RectSelectionControls({
   const content = getSharedValue(
     nodes.map((node) => node.content),
     "",
+  );
+  const bgColor = getSharedValue(
+    nodes.map((node) => node.bgColor),
+    "#ffffff",
   );
   const contentKind = getSharedValue<BoxContentKind>(
     nodes.map((node) => node.contentKind),
@@ -69,10 +73,6 @@ export function RectSelectionControls({
   );
   const backgroundEnabled = getSharedValue(
     nodes.map((node) => node.backgroundEnabled),
-    true,
-  );
-  const borderEnabled = getSharedValue(
-    nodes.map((node) => node.borderEnabled),
     true,
   );
   const sanitizeSvg = getSharedValue(
@@ -173,8 +173,35 @@ export function RectSelectionControls({
   };
 
   useControls(
-    "Rect",
+    "Box",
     () => ({
+      kind: {
+        options: [...BOX_CONTENT_KIND_OPTIONS],
+        value: contentKind.value,
+        hint: contentKind.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextValue: BoxContentKind,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) =>
+              node.type === "box"
+                ? {
+                    ...node,
+                    contentKind: nextValue,
+                  }
+                : node,
+            { commitHistory: false },
+          );
+        },
+      },
       size: folder({
         width: {
           value: width.mixed ? 0 : width.value,
@@ -184,7 +211,7 @@ export function RectSelectionControls({
           onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
             if (shouldIgnoreLevaChange(context)) return;
             applyNumericChange(
-              "rect.width",
+                "box.width",
               nextValue,
               (node) => node.size.width,
               (node, value) => ({
@@ -197,7 +224,7 @@ export function RectSelectionControls({
             startEdit();
             startNumericEditSession(
               sessionsRef,
-              "rect.width",
+                "box.width",
               nodes,
               (node) => node.size.width,
               width.mixed ? 0 : width.value,
@@ -206,7 +233,7 @@ export function RectSelectionControls({
           },
           onEditEnd: () => {
             commitSelectedNodes();
-            clearNumericEditSession(sessionsRef, "rect.width");
+              clearNumericEditSession(sessionsRef, "box.width");
             endEdit();
           },
         },
@@ -218,7 +245,7 @@ export function RectSelectionControls({
           onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
             if (shouldIgnoreLevaChange(context)) return;
             applyNumericChange(
-              "rect.height",
+                "box.height",
               nextValue,
               (node) => node.size.height,
               (node, value) => ({
@@ -231,7 +258,7 @@ export function RectSelectionControls({
             startEdit();
             startNumericEditSession(
               sessionsRef,
-              "rect.height",
+                "box.height",
               nodes,
               (node) => node.size.height,
               height.mixed ? 0 : height.value,
@@ -240,24 +267,23 @@ export function RectSelectionControls({
           },
           onEditEnd: () => {
             commitSelectedNodes();
-            clearNumericEditSession(sessionsRef, "rect.height");
+              clearNumericEditSession(sessionsRef, "box.height");
             endEdit();
           },
         },
       }),
       background: folder(
         {
-          kind: {
-            options: [...BOX_CONTENT_KIND_OPTIONS],
-            value: contentKind.value,
-            hint: contentKind.mixed ? MIXED_HINT : undefined,
+          bgColor: {
+            value: bgColor.value,
+            hint: bgColor.mixed ? MIXED_HINT : undefined,
             onEditStart: startEdit,
             onEditEnd: () => {
               commitSelectedNodes();
               endEdit();
             },
             onChange: (
-              nextValue: BoxContentKind,
+              nextValue: string,
               _: string,
               context: LevaOnChangeContext,
             ) => {
@@ -267,7 +293,7 @@ export function RectSelectionControls({
                   node.type === "box"
                     ? {
                         ...node,
-                        contentKind: nextValue,
+                        bgColor: nextValue,
                       }
                     : node,
                 { commitHistory: false },
@@ -372,7 +398,7 @@ export function RectSelectionControls({
             ) => {
               if (shouldIgnoreLevaChange(context)) return;
               applyNumericChange(
-                "rect.boxShadowX",
+                "box.boxShadowX",
                 nextValue,
                 (node) => node.boxShadow?.x ?? DEFAULT_BOX_SHADOW_STYLE.x,
                 (node, value) => ({
@@ -388,7 +414,7 @@ export function RectSelectionControls({
               startEdit();
               startNumericEditSession(
                 sessionsRef,
-                "rect.boxShadowX",
+                "box.boxShadowX",
                 nodes,
                 (node) => node.boxShadow?.x ?? DEFAULT_BOX_SHADOW_STYLE.x,
                 boxShadowX.mixed ? 0 : boxShadowX.value,
@@ -397,7 +423,7 @@ export function RectSelectionControls({
             },
             onEditEnd: () => {
               commitSelectedNodes();
-              clearNumericEditSession(sessionsRef, "rect.boxShadowX");
+              clearNumericEditSession(sessionsRef, "box.boxShadowX");
               endEdit();
             },
           },
@@ -412,7 +438,7 @@ export function RectSelectionControls({
             ) => {
               if (shouldIgnoreLevaChange(context)) return;
               applyNumericChange(
-                "rect.boxShadowY",
+                "box.boxShadowY",
                 nextValue,
                 (node) => node.boxShadow?.y ?? DEFAULT_BOX_SHADOW_STYLE.y,
                 (node, value) => ({
@@ -428,7 +454,7 @@ export function RectSelectionControls({
               startEdit();
               startNumericEditSession(
                 sessionsRef,
-                "rect.boxShadowY",
+                "box.boxShadowY",
                 nodes,
                 (node) => node.boxShadow?.y ?? DEFAULT_BOX_SHADOW_STYLE.y,
                 boxShadowY.mixed ? 0 : boxShadowY.value,
@@ -437,7 +463,7 @@ export function RectSelectionControls({
             },
             onEditEnd: () => {
               commitSelectedNodes();
-              clearNumericEditSession(sessionsRef, "rect.boxShadowY");
+              clearNumericEditSession(sessionsRef, "box.boxShadowY");
               endEdit();
             },
           },
@@ -453,7 +479,7 @@ export function RectSelectionControls({
             ) => {
               if (shouldIgnoreLevaChange(context)) return;
               applyNumericChange(
-                "rect.boxShadowBlur",
+                "box.boxShadowBlur",
                 nextValue,
                 (node) => node.boxShadow?.blur ?? DEFAULT_BOX_SHADOW_STYLE.blur,
                 (node, value) => ({
@@ -469,7 +495,7 @@ export function RectSelectionControls({
               startEdit();
               startNumericEditSession(
                 sessionsRef,
-                "rect.boxShadowBlur",
+                "box.boxShadowBlur",
                 nodes,
                 (node) => node.boxShadow?.blur ?? DEFAULT_BOX_SHADOW_STYLE.blur,
                 boxShadowBlur.mixed ? 0 : boxShadowBlur.value,
@@ -478,7 +504,7 @@ export function RectSelectionControls({
             },
             onEditEnd: () => {
               commitSelectedNodes();
-              clearNumericEditSession(sessionsRef, "rect.boxShadowBlur");
+              clearNumericEditSession(sessionsRef, "box.boxShadowBlur");
               endEdit();
             },
           },
@@ -493,7 +519,7 @@ export function RectSelectionControls({
             ) => {
               if (shouldIgnoreLevaChange(context)) return;
               applyNumericChange(
-                "rect.boxShadowSpread",
+                "box.boxShadowSpread",
                 nextValue,
                 (node) => node.boxShadow?.spread ?? DEFAULT_BOX_SHADOW_STYLE.spread,
                 (node, value) => ({
@@ -509,7 +535,7 @@ export function RectSelectionControls({
               startEdit();
               startNumericEditSession(
                 sessionsRef,
-                "rect.boxShadowSpread",
+                "box.boxShadowSpread",
                 nodes,
                 (node) => node.boxShadow?.spread ?? DEFAULT_BOX_SHADOW_STYLE.spread,
                 boxShadowSpread.mixed ? 0 : boxShadowSpread.value,
@@ -518,7 +544,7 @@ export function RectSelectionControls({
             },
             onEditEnd: () => {
               commitSelectedNodes();
-              clearNumericEditSession(sessionsRef, "rect.boxShadowSpread");
+              clearNumericEditSession(sessionsRef, "box.boxShadowSpread");
               endEdit();
             },
           },
@@ -564,7 +590,7 @@ export function RectSelectionControls({
             ) => {
               if (shouldIgnoreLevaChange(context)) return;
               applyNumericChange(
-                "rect.boxShadowOpacity",
+                "box.boxShadowOpacity",
                 nextValue,
                 (node) =>
                   node.boxShadow?.opacity ?? DEFAULT_BOX_SHADOW_STYLE.opacity,
@@ -581,7 +607,7 @@ export function RectSelectionControls({
               startEdit();
               startNumericEditSession(
                 sessionsRef,
-                "rect.boxShadowOpacity",
+                "box.boxShadowOpacity",
                 nodes,
                 (node) =>
                   node.boxShadow?.opacity ?? DEFAULT_BOX_SHADOW_STYLE.opacity,
@@ -591,7 +617,7 @@ export function RectSelectionControls({
             },
             onEditEnd: () => {
               commitSelectedNodes();
-              clearNumericEditSession(sessionsRef, "rect.boxShadowOpacity");
+              clearNumericEditSession(sessionsRef, "box.boxShadowOpacity");
               endEdit();
             },
           },
@@ -654,7 +680,7 @@ export function RectSelectionControls({
           typography: folder(
             {
               ...createTypographyControls<BoxNode>({
-                prefix: "rect.contentTypography",
+                prefix: "box.contentTypography",
                 typography,
                 startEdit,
                 endEdit: () => {
@@ -678,7 +704,7 @@ export function RectSelectionControls({
         },
         {
           collapsed: false,
-          render: (get) => get("Rect.background.kind") === "plain",
+          render: (get) => get("Box.kind") === "plain",
         },
       ),
       svg: folder(
@@ -739,7 +765,7 @@ export function RectSelectionControls({
         },
         {
           collapsed: false,
-          render: (get) => get("Rect.background.kind") === "svg",
+          render: (get) => get("Box.kind") === "svg",
         },
       ),
       component: folder(
@@ -810,39 +836,8 @@ export function RectSelectionControls({
         },
         {
           collapsed: false,
-          render: (get) => get("Rect.background.kind") === "component",
+          render: (get) => get("Box.kind") === "component",
         },
-      ),
-      border: folder(
-        {
-          borderEnabled: {
-            value: borderEnabled.value,
-            hint: borderEnabled.mixed ? MIXED_HINT : undefined,
-            onEditStart: startEdit,
-            onEditEnd: () => {
-              commitSelectedNodes();
-              endEdit();
-            },
-            onChange: (
-              nextEnabled: boolean,
-              _: string,
-              context: LevaOnChangeContext,
-            ) => {
-              if (shouldIgnoreLevaChange(context)) return;
-              updateSelectedNodes(
-                (node) =>
-                  node.type === "box"
-                    ? {
-                        ...node,
-                        borderEnabled: nextEnabled,
-                      }
-                    : node,
-                { commitHistory: false },
-              );
-            },
-          },
-        },
-        { collapsed: true },
       ),
     }),
     [
@@ -853,6 +848,8 @@ export function RectSelectionControls({
       height.mixed,
       content.value,
       content.mixed,
+      bgColor.value,
+      bgColor.mixed,
       contentKind.value,
       contentKind.mixed,
       svgContent.value,
@@ -867,8 +864,6 @@ export function RectSelectionControls({
       backgroundSize.mixed,
       backgroundEnabled.value,
       backgroundEnabled.mixed,
-      borderEnabled.value,
-      borderEnabled.mixed,
       sanitizeSvg.value,
       sanitizeSvg.mixed,
       boxShadowEnabled.value,
@@ -890,7 +885,7 @@ export function RectSelectionControls({
   );
 
   useEffect(() => {
-    if (!consumeControlFocus("rect.content")) {
+    if (!consumeControlFocus("box.content")) {
       return;
     }
 

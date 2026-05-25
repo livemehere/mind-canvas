@@ -115,7 +115,7 @@ export default function App() {
       case "rect": {
         const id = createRect(position.x, position.y);
         setActiveNodeIds([id]);
-        requestControlFocus("rect.content");
+        requestControlFocus("box.content");
         setActiveToolId("select");
         setActiveEdgeIds([]);
         break;
@@ -140,7 +140,7 @@ export default function App() {
     if (node.type === "box") {
       setActiveNodeIds([node.id]);
       setActiveEdgeIds([]);
-      requestControlFocus("rect.content");
+      requestControlFocus("box.content");
       return;
     }
 
@@ -239,7 +239,7 @@ export default function App() {
 
       const selectedNode = selectedNodes[0];
       if (selectedNode.type === "box") {
-        requestControlFocus("rect.content");
+        requestControlFocus("box.content");
         return;
       }
 
