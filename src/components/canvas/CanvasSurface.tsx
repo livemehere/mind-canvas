@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   type BoxNode,
   type CanvasEdge,
@@ -46,6 +46,12 @@ export interface CanvasFocusRequest {
   fitPercent: number;
 }
 
+interface MeasuredTextBounds {
+  key: string;
+  width: number;
+  height: number;
+}
+
 const toCanvasViewportState = (
   viewport: CanvasViewport,
 ): CanvasViewportState => ({
@@ -53,6 +59,14 @@ const toCanvasViewportState = (
   y: viewport.y,
   scale: viewport.scale,
 });
+
+const getTextMeasurementKey = (node: TextNode) =>
+  JSON.stringify({
+    text: node.text,
+    paddingX: node.paddingX,
+    paddingY: node.paddingY,
+    typography: node.typography,
+  });
 
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
@@ -165,6 +179,9 @@ export function CanvasSurface({
   );
   const [edgeDraftHoverAnchor, setEdgeDraftHoverAnchor] =
     useState<EdgeAnchor | null>(null);
+  const [measuredTextBoundsByNodeId, setMeasuredTextBoundsByNodeId] = useState<
+    Record<string, MeasuredTextBounds>
+  >({});
 
   useEffect(() => {
     if (entranceNodeIds.length === 0) {
@@ -1104,16 +1121,13 @@ export function CanvasSurface({
       )
     : undefined;
 
-  const measuredTextBoundsByNodeId = useMemo(() => {
+  useLayoutEffect(() => {
     if (!containerRef.current) {
-      return {};
+      setMeasuredTextBoundsByNodeId({});
+      return;
     }
 
-    const canvasRect = containerRef.current.getBoundingClientRect();
-    const result: Record<
-      string,
-      { left: number; right: number; top: number; bottom: number }
-    > = {};
+    const nextBounds: Record<string, MeasuredTextBounds> = {};
 
     nodes.forEach((node) => {
       if (node.type !== "text") {
@@ -1126,19 +1140,26 @@ export function CanvasSurface({
       }
 
       const rect = element.getBoundingClientRect();
-      result[node.id] = {
-        left: (rect.left - canvasRect.left - viewport.x) / viewport.scale,
-        right: (rect.right - canvasRect.left - viewport.x) / viewport.scale,
-        top: (rect.top - canvasRect.top - viewport.y) / viewport.scale,
-        bottom: (rect.bottom - canvasRect.top - viewport.y) / viewport.scale,
+      nextBounds[node.id] = {
+        key: getTextMeasurementKey(node),
+        width: rect.width / viewport.scale,
+        height: rect.height / viewport.scale,
       };
     });
 
-    return result;
+    setMeasuredTextBoundsByNodeId(nextBounds);
   }, [nodes, viewport.scale, viewport.x, viewport.y]);
 
-  const getMeasuredTextBounds = (nodeId: string) =>
-    measuredTextBoundsByNodeId[nodeId];
+  const getMeasuredTextBounds = (node: TextNode) => {
+    const measuredBounds = measuredTextBoundsByNodeId[node.id];
+    if (!measuredBounds) {
+      return undefined;
+    }
+
+    return measuredBounds.key === getTextMeasurementKey(node)
+      ? measuredBounds
+      : undefined;
+  };
 
   const getNodeCenterForHandle = (node: CanvasNode) => {
     if (node.type === "box") {
@@ -1181,22 +1202,23 @@ export function CanvasSurface({
       }
     }
 
-    const measuredBounds = getMeasuredTextBounds(node.id);
+    const measuredBounds = getMeasuredTextBounds(node);
     if (measuredBounds) {
-      const centerX = (measuredBounds.left + measuredBounds.right) / 2;
-      const centerY = (measuredBounds.top + measuredBounds.bottom) / 2;
+      const center = getNodeCenterForHandle(node);
+      const halfWidth = measuredBounds.width / 2;
+      const halfHeight = measuredBounds.height / 2;
 
       switch (anchor) {
         case "left":
-          return { x: measuredBounds.left, y: centerY };
+          return { x: center.x - halfWidth, y: center.y };
         case "right":
-          return { x: measuredBounds.right, y: centerY };
+          return { x: center.x + halfWidth, y: center.y };
         case "top":
-          return { x: centerX, y: measuredBounds.top };
+          return { x: center.x, y: center.y - halfHeight };
         case "bottom":
-          return { x: centerX, y: measuredBounds.bottom };
+          return { x: center.x, y: center.y + halfHeight };
         case "auto":
-          return { x: centerX, y: centerY };
+          return center;
       }
     }
 
@@ -1352,7 +1374,7 @@ export function CanvasSurface({
           edges={edges}
           activeEdgeIds={activeEdgeIds}
           previewOffsetByNodeId={previewOffsetByNodeId}
-          measuredBoundsByNodeId={measuredTextBoundsByNodeId}
+          measuredTextSizeByNodeId={measuredTextBoundsByNodeId}
           isPreviewing={dragPreview !== null}
           entranceEdgeIds={entranceEdgeIds}
           entranceRun={edgeEntranceRun}

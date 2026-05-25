@@ -17,9 +17,9 @@ interface Props {
   edges: CanvasEdge[];
   activeEdgeIds: string[];
   previewOffsetByNodeId?: Record<string, Position>;
-  measuredBoundsByNodeId?: Record<
+  measuredTextSizeByNodeId?: Record<
     string,
-    { left: number; right: number; top: number; bottom: number }
+    { width: number; height: number }
   >;
   isPreviewing?: boolean;
   entranceEdgeIds?: string[];
@@ -37,12 +37,8 @@ const TEXT_EDGE_GUTTER = 10;
 const getNodeBounds = (
   node: CanvasNode,
   offset: Position | undefined,
-  measuredBounds?: { left: number; right: number; top: number; bottom: number },
+  measuredTextSize?: { width: number; height: number },
 ): { left: number; right: number; top: number; bottom: number } => {
-  if (node.type === "text" && measuredBounds && !offset) {
-    return measuredBounds;
-  }
-
   const x = node.position.x + (offset?.x ?? 0);
   const y = node.position.y + (offset?.y ?? 0);
   const scale = Math.max(0.01, node.scale);
@@ -62,26 +58,29 @@ const getNodeBounds = (
   }
 
   const width =
-    Math.max(
-      120,
+    (measuredTextSize?.width ??
       Math.max(
-        ...node.text
-          .split("\n")
-          .map(
-            (line) =>
-              line.length *
-              (node.typography.fontSize * 0.58 + node.typography.letterSpacing),
-          ),
-      ) +
-        node.paddingX * 2,
-    ) * scale;
+        120,
+        Math.max(
+          ...node.text
+            .split("\n")
+            .map(
+              (line) =>
+                line.length *
+                (node.typography.fontSize * 0.58 + node.typography.letterSpacing),
+            ),
+        ) +
+          node.paddingX * 2,
+      )) * scale;
   const height =
-    Math.max(
-      node.text.split("\n").length *
-        (node.typography.fontSize * node.typography.lineHeight) +
-        node.paddingY * 2,
-      32,
-    ) * scale;
+    (measuredTextSize?.height ??
+      Math.max(
+        node.text.split("\n").length *
+          node.typography.fontSize *
+          node.typography.lineHeight +
+          node.paddingY * 2,
+        32,
+      )) * scale;
   return {
     left: x - width / 2,
     right: x + width / 2,
@@ -280,7 +279,7 @@ export function CanvasEdgeLayer({
   edges,
   activeEdgeIds,
   previewOffsetByNodeId,
-  measuredBoundsByNodeId,
+  measuredTextSizeByNodeId,
   isPreviewing = false,
   entranceEdgeIds = [],
   entranceRun = 0,
@@ -313,12 +312,12 @@ export function CanvasEdgeLayer({
       const sourceBounds = getNodeBounds(
         sourceNode,
         previewOffsetByNodeId?.[sourceNode.id],
-        measuredBoundsByNodeId?.[sourceNode.id],
+        measuredTextSizeByNodeId?.[sourceNode.id],
       );
       const targetBounds = getNodeBounds(
         targetNode,
         previewOffsetByNodeId?.[targetNode.id],
-        measuredBoundsByNodeId?.[targetNode.id],
+        measuredTextSizeByNodeId?.[targetNode.id],
       );
 
       const sourceCenter = getCenter(sourceBounds);
