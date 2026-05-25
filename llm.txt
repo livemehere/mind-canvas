@@ -1,0 +1,339 @@
+Mind Canvas LLM Spec (JSON-only Snapshot Generator)
+
+Purpose
+- This spec is for an AI agent that generates presentation-like canvas scenes for Mind Canvas.
+- The agent must output valid JSON only (no markdown, no prose, no code fences).
+- The output should be directly loadable via "Load snapshots from JSON".
+
+Output Contract
+- Return exactly one JSON object with this shape:
+  {
+    "step": number,
+    "snapShot": Snapshot[]
+  }
+- step: zero-based index of the active step.
+- snapShot: array of steps. Each step is one scene.
+- Do not return any extra keys outside this payload unless explicitly requested.
+
+Top-level Types
+- Snapshot:
+  {
+    "nodes": CanvasNode[],
+    "edges": CanvasEdge[]
+  }
+
+- CanvasNode is one of:
+  1) BoxNode ("type": "box")
+  2) TextNode ("type": "text")
+
+- CanvasEdge:
+  {
+    "id": string,
+    "type": "edge",
+    "sourceNodeId": string,
+    "targetNodeId": string,
+    "sourceAnchor": "auto" | "top" | "right" | "bottom" | "left",
+    "targetAnchor": "auto" | "top" | "right" | "bottom" | "left",
+    "color": string,
+    "width": number,
+    "dashed": boolean,
+    "arrowStart": boolean,
+    "arrowEnd": boolean,
+    "route": "curve" | "straight" | "elbow",
+    "curve": number,
+    "opacity": number,
+    "zIndex": number,
+    "transition": "spring" | "none",
+    "entranceAnimation": "none" | "fade" | "draw",
+    "replayEntranceOnStepChange": boolean
+  }
+
+Shared Node Fields (BaseNode)
+- Required on both box/text nodes:
+  {
+    "id": string,
+    "type": "box" | "text",
+    "position": { "x": number, "y": number },
+    "opacity": number,
+    "scale": number,
+    "rotate": number,
+    "zIndex": number,
+    "transition": "spring" | "none",
+    "entranceAnimation": "none" | "fade" | "pop" | "slide-up" | "slide-down" | "slide-left" | "slide-right",
+    "replayEntranceOnStepChange": boolean,
+    "radius": number,
+    "borderWidth": number,
+    "borderColor": string,
+    "borderEnabled": boolean
+  }
+
+BoxNode Fields
+- Full shape:
+  {
+    "id": string,
+    "type": "box",
+    "position": { "x": number, "y": number },
+    "size": { "width": number, "height": number },
+    "backgroundImage": string (optional),
+    "backgroundSize": "cover" | "contain",
+    "backgroundEnabled": boolean,
+    "bgColor": string,
+    "contentKind": "plain" | "svg" | "component",
+    "boxShadow": {
+      "enabled": boolean,
+      "x": number,
+      "y": number,
+      "blur": number,
+      "spread": number,
+      "color": string,
+      "opacity": number
+    },
+    "content": string,
+    "svgContent": string,
+    "sanitizeSvg": boolean,
+    "componentId": string,
+    "componentProps": object,
+    "contentTypography": {
+      "color": string,
+      "fontSize": number,
+      "fontFamily": string,
+      "fontWeight": number,
+      "fontStyle": "normal" | "italic",
+      "lineHeight": number,
+      "letterSpacing": number,
+      "textAlign": "left" | "center" | "right",
+      "underline": boolean,
+      "strikethrough": boolean,
+      "strokeWidth": number,
+      "strokeColor": string
+    },
+    "opacity": number,
+    "scale": number,
+    "rotate": number,
+    "zIndex": number,
+    "transition": "spring" | "none",
+    "entranceAnimation": "none" | "fade" | "pop" | "slide-up" | "slide-down" | "slide-left" | "slide-right",
+    "replayEntranceOnStepChange": boolean,
+    "radius": number,
+    "borderWidth": number,
+    "borderColor": string,
+    "borderEnabled": boolean
+  }
+
+TextNode Fields
+- Full shape:
+  {
+    "id": string,
+    "type": "text",
+    "text": string,
+    "color": string,
+    "bgColor": string,
+    "backgroundEnabled": boolean,
+    "textShadow": {
+      "enabled": boolean,
+      "x": number,
+      "y": number,
+      "blur": number,
+      "color": string,
+      "opacity": number
+    },
+    "paddingX": number,
+    "paddingY": number,
+    "typography": {
+      "fontSize": number,
+      "fontFamily": string,
+      "fontWeight": number,
+      "fontStyle": "normal" | "italic",
+      "lineHeight": number,
+      "letterSpacing": number,
+      "textAlign": "left" | "center" | "right",
+      "underline": boolean,
+      "strikethrough": boolean,
+      "strokeWidth": number,
+      "strokeColor": string
+    },
+    "position": { "x": number, "y": number },
+    "opacity": number,
+    "scale": number,
+    "rotate": number,
+    "zIndex": number,
+    "transition": "spring" | "none",
+    "entranceAnimation": "none" | "fade" | "pop" | "slide-up" | "slide-down" | "slide-left" | "slide-right",
+    "replayEntranceOnStepChange": boolean,
+    "radius": number,
+    "borderWidth": number,
+    "borderColor": string,
+    "borderEnabled": boolean
+  }
+
+Code-based Generation Rules
+- IDs must be unique within each step for nodes and edges.
+- Every edge sourceNodeId/targetNodeId must reference existing node IDs in the same step.
+- Include both "nodes" and "edges" arrays for every step, even if empty.
+- Do not output legacy node type "rect". Use "box".
+- Use only enum values defined in this spec.
+- Keep numeric fields numeric (no quoted numbers).
+- Keep booleans boolean (no quoted booleans).
+- Preferred color format: hex (e.g. "#ffffff").
+- Recommended default transition: "spring".
+
+Runtime Coordinate Notes (from current app behavior)
+- The canvas origin is centered in the viewport at startup.
+- Treat (0, 0) as the visual center point.
+- Positive x moves right, negative x moves left.
+- Positive y moves down, negative y moves up.
+
+Edge Geometry Notes (from current renderer)
+- If sourceAnchor/targetAnchor is "auto", anchor side is chosen by center-to-center direction:
+  - horizontal dominance => left/right
+  - vertical dominance => top/bottom
+- Text node bounds are estimated (not exact glyph bounds):
+  - width ~= max(120, fontSize * 2.5 + paddingX * 2) * scale
+  - height ~= max((fontSize * lineHeight + paddingY * 2) * scale, 32)
+- For cleaner lines, prefer explicit anchors on structured layouts:
+  - horizontal chains: sourceAnchor="right", targetAnchor="left", route="straight"
+  - vertical chains: sourceAnchor="bottom", targetAnchor="top", route="straight"
+  - mixed directions: route="elbow" can reduce visual overlap
+- Recommended minimum spacing to reduce edge crowding:
+  - horizontal node-gap: 260+
+  - vertical node-gap: 170+
+
+Layout Hygiene Rules
+- Default to fewer nodes over decorative density.
+- Avoid unnecessary full-canvas background box nodes unless explicitly requested.
+- Prefer text nodes for labels/chips/titles when a box shape is not required.
+- Keep scenes center-aligned around (0,0) unless prompt requests asymmetry.
+- If a step uses many edges, increase node spacing before adding more curves.
+
+Component Mode Notes
+- If contentKind is "component", set:
+  - componentId to a valid ID (currently "badge-note" or "metric-chip")
+  - componentProps to an object
+- If not using component mode, still include componentId and componentProps with safe defaults.
+
+Minimal Safe Defaults
+- Use these if a prompt does not specify style values:
+  - opacity: 1
+  - scale: 1
+  - rotate: 0
+  - zIndex: 0
+  - radius: 0
+  - borderWidth: 0
+  - borderColor: "#ffffff"
+  - borderEnabled: true
+  - transition: "spring"
+  - replayEntranceOnStepChange: false
+  - box entranceAnimation: "pop"
+  - text entranceAnimation: "pop"
+  - edge entranceAnimation: "draw"
+
+Agent Prompting Template
+- System behavior for the JSON generator:
+  - Convert user topic/instructions into a multi-step visual narrative.
+  - Output valid JSON payload only.
+  - No markdown fences, no natural language explanation.
+  - Ensure schema correctness and enum correctness.
+  - Ensure all edges reference existing nodes.
+  - Keep layouts centered and readable around origin.
+  - Prefer explicit anchors when a linear flow is intended.
+
+- User prompt example:
+  - "Create a 4-step snapshot JSON explaining how photosynthesis works. Step 1: context, Step 2: light reaction, Step 3: Calvin cycle, Step 4: summary. Use mostly text nodes and a few connecting edges."
+
+Example Output (valid payload)
+{
+  "step": 0,
+  "snapShot": [
+    {
+      "nodes": [
+        {
+          "id": "title-1",
+          "type": "text",
+          "text": "Photosynthesis",
+          "color": "#ffffff",
+          "bgColor": "transparent",
+          "backgroundEnabled": true,
+          "textShadow": {
+            "enabled": false,
+            "x": 0,
+            "y": 8,
+            "blur": 16,
+            "color": "#000000",
+            "opacity": 0.35
+          },
+          "paddingX": 0,
+          "paddingY": 0,
+          "typography": {
+            "fontSize": 64,
+            "fontFamily": "Inter, sans-serif",
+            "fontWeight": 700,
+            "fontStyle": "normal",
+            "lineHeight": 1.2,
+            "letterSpacing": 0,
+            "textAlign": "left",
+            "underline": false,
+            "strikethrough": false,
+            "strokeWidth": 0,
+            "strokeColor": "#000000"
+          },
+          "position": { "x": 80, "y": 80 },
+          "opacity": 1,
+          "scale": 1,
+          "rotate": 0,
+          "zIndex": 2,
+          "transition": "spring",
+          "entranceAnimation": "fade",
+          "replayEntranceOnStepChange": false,
+          "radius": 0,
+          "borderWidth": 0,
+          "borderColor": "#ffffff",
+          "borderEnabled": true
+        },
+        {
+          "id": "subtitle-1",
+          "type": "text",
+          "text": "Plants convert light energy into chemical energy.",
+          "color": "#d1d5db",
+          "bgColor": "transparent",
+          "backgroundEnabled": true,
+          "textShadow": {
+            "enabled": false,
+            "x": 0,
+            "y": 8,
+            "blur": 16,
+            "color": "#000000",
+            "opacity": 0.35
+          },
+          "paddingX": 0,
+          "paddingY": 0,
+          "typography": {
+            "fontSize": 26,
+            "fontFamily": "Inter, sans-serif",
+            "fontWeight": 500,
+            "fontStyle": "normal",
+            "lineHeight": 1.3,
+            "letterSpacing": 0,
+            "textAlign": "left",
+            "underline": false,
+            "strikethrough": false,
+            "strokeWidth": 0,
+            "strokeColor": "#000000"
+          },
+          "position": { "x": 84, "y": 170 },
+          "opacity": 1,
+          "scale": 1,
+          "rotate": 0,
+          "zIndex": 2,
+          "transition": "spring",
+          "entranceAnimation": "slide-up",
+          "replayEntranceOnStepChange": false,
+          "radius": 0,
+          "borderWidth": 0,
+          "borderColor": "#ffffff",
+          "borderEnabled": true
+        }
+      ],
+      "edges": []
+    }
+  ]
+}
