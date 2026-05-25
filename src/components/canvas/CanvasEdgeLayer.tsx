@@ -384,6 +384,8 @@ export function CanvasEdgeLayer({
             : 0.22
           : 0;
         const arrowOpacityTarget = edge.opacity;
+        const startArrowPath = getArrowPath(sourcePoint, sourceAngle);
+        const endArrowPath = getArrowPath(targetPoint, targetAngle);
         const highlightStroke = isSelected ? Math.max(edge.width + 4, 8) : edge.width;
         const highlightColor = isSelected ? "#ffbe5c" : edge.color;
 
@@ -401,18 +403,38 @@ export function CanvasEdgeLayer({
             />
             {edge.arrowStart ? (
               <motion.path
-                d={getArrowPath(sourcePoint, sourceAngle)}
-                initial={shouldPlayEntrance ? { opacity: 0 } : false}
-                animate={{ opacity: arrowOpacityTarget }}
+                d={startArrowPath}
+                initial={
+                  shouldPlayEntrance
+                    ? {
+                        d: startArrowPath,
+                        opacity: 0,
+                      }
+                    : false
+                }
+                animate={{
+                  d: startArrowPath,
+                  opacity: arrowOpacityTarget,
+                }}
                 transition={{ ...transition, delay: arrowDelay }}
                 fill={highlightColor}
               />
             ) : null}
             {edge.arrowEnd ? (
               <motion.path
-                d={getArrowPath(targetPoint, targetAngle)}
-                initial={shouldPlayEntrance ? { opacity: 0 } : false}
-                animate={{ opacity: arrowOpacityTarget }}
+                d={endArrowPath}
+                initial={
+                  shouldPlayEntrance
+                    ? {
+                        d: endArrowPath,
+                        opacity: 0,
+                      }
+                    : false
+                }
+                animate={{
+                  d: endArrowPath,
+                  opacity: arrowOpacityTarget,
+                }}
                 transition={{ ...transition, delay: arrowDelay }}
                 fill={highlightColor}
               />
