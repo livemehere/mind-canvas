@@ -25,6 +25,9 @@ interface Props {
   ) => void;
 }
 
+const ARROW_LENGTH = 13;
+const ARROW_HALF_WIDTH = 6.5;
+
 const getNodeBounds = (
   node: CanvasNode,
   offset: Position | undefined,
@@ -96,76 +99,145 @@ const getAnchorPoint = (
   }
 };
 
-const getCurvePath = (
+const getAnchorNormal = (anchor: Exclude<EdgeAnchor, "auto">): Position => {
+  switch (anchor) {
+    case "left":
+      return { x: -1, y: 0 };
+    case "right":
+      return { x: 1, y: 0 };
+    case "top":
+      return { x: 0, y: -1 };
+    case "bottom":
+      return { x: 0, y: 1 };
+  }
+};
+
+const toAngle = (vector: Position) =>
+  (Math.atan2(vector.y, vector.x) * 180) / Math.PI;
+
+const directionFromAngle = (angle: number): Position => {
+  const radians = (angle * Math.PI) / 180;
+  return { x: Math.cos(radians), y: Math.sin(radians) };
+};
+
+const normalize = (vector: Position): Position => {
+  const length = Math.hypot(vector.x, vector.y);
+  if (length < 0.0001) {
+    return { x: 1, y: 0 };
+  }
+
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  };
+};
+
+const add = (a: Position, b: Position): Position => ({ x: a.x + b.x, y: a.y + b.y });
+const sub = (a: Position, b: Position): Position => ({ x: a.x - b.x, y: a.y - b.y });
+const mul = (v: Position, scalar: number): Position => ({
+  x: v.x * scalar,
+  y: v.y * scalar,
+});
+
+const getArrowPath = (
+  tip: Position,
+  angle: number,
+  size = ARROW_LENGTH,
+  halfWidth = ARROW_HALF_WIDTH,
+) => {
+  const radians = (angle * Math.PI) / 180;
+  const dir = { x: Math.cos(radians), y: Math.sin(radians) };
+  const perp = { x: -dir.y, y: dir.x };
+  const back = sub(tip, mul(dir, size));
+  const left = add(back, mul(perp, halfWidth));
+  const right = sub(back, mul(perp, halfWidth));
+
+  return `M ${tip.x} ${tip.y} L ${left.x} ${left.y} L ${right.x} ${right.y} Z`;
+};
+
+const getCurvePathGeometry = (
   source: Position,
   target: Position,
+  sourceAnchor: Exclude<EdgeAnchor, "auto">,
+  targetAnchor: Exclude<EdgeAnchor, "auto">,
   curve: number,
 ) => {
-  const dx = target.x - source.x;
-  const dy = target.y - source.y;
-  const distance = Math.hypot(dx, dy);
-  const bend = Math.max(24, distance * Math.max(0, Math.min(1, curve)));
+  const distance = Math.hypot(target.x - source.x, target.y - source.y);
+  const curveFactor = Math.max(0.08, Math.min(1, curve));
+  const handleLength = Math.max(22, Math.min(220, distance * curveFactor));
+  const sourceDir = getAnchorNormal(sourceAnchor);
+  const targetNormal = getAnchorNormal(targetAnchor);
+  const endDir = mul(targetNormal, -1);
+  const c1 = add(source, mul(sourceDir, handleLength));
+  const c2 = sub(target, mul(endDir, handleLength));
 
-  const useHorizontal = Math.abs(dx) >= Math.abs(dy);
-  const c1 = useHorizontal
-    ? { x: source.x + Math.sign(dx || 1) * bend, y: source.y }
-    : { x: source.x, y: source.y + Math.sign(dy || 1) * bend };
-  const c2 = useHorizontal
-    ? { x: target.x - Math.sign(dx || 1) * bend, y: target.y }
-    : { x: target.x, y: target.y - Math.sign(dy || 1) * bend };
+  const d = `M ${source.x} ${source.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${target.x} ${target.y}`;
+  const sourceAngle = toAngle(sourceDir);
+  const targetAngle = toAngle(sub(target, c2));
 
-  return `M ${source.x} ${source.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${target.x} ${target.y}`;
+  return { d, sourceAngle, targetAngle };
 };
 
-const getStraightPath = (source: Position, target: Position) =>
-  `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
+const getStraightPathGeometry = (source: Position, target: Position) => {
+  const d = `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
+  const vector = normalize(sub(target, source));
+  const angle = toAngle(vector);
 
-const getElbowPath = (source: Position, target: Position) => {
-  const midX = (source.x + target.x) / 2;
-  return `M ${source.x} ${source.y} L ${midX} ${source.y} L ${midX} ${target.y} L ${target.x} ${target.y}`;
+  return {
+    d,
+    sourceAngle: angle,
+    targetAngle: angle,
+  };
 };
 
-const getEdgePath = (
+const getElbowPathGeometry = (
   source: Position,
   target: Position,
+  sourceAnchor: Exclude<EdgeAnchor, "auto">,
+  targetAnchor: Exclude<EdgeAnchor, "auto">,
+) => {
+  const sourceNormal = getAnchorNormal(sourceAnchor);
+  const targetNormal = getAnchorNormal(targetAnchor);
+  const endDir = mul(targetNormal, -1);
+  const distance = Math.hypot(target.x - source.x, target.y - source.y);
+  const offset = Math.max(20, Math.min(72, distance * 0.25));
+
+  const sourceOut = add(source, mul(sourceNormal, offset));
+  const targetIn = sub(target, mul(endDir, offset));
+
+  const firstHorizontal = Math.abs(sourceNormal.x) > Math.abs(sourceNormal.y);
+  const bend = firstHorizontal
+    ? { x: targetIn.x, y: sourceOut.y }
+    : { x: sourceOut.x, y: targetIn.y };
+
+  const d = `M ${source.x} ${source.y} L ${sourceOut.x} ${sourceOut.y} L ${bend.x} ${bend.y} L ${targetIn.x} ${targetIn.y} L ${target.x} ${target.y}`;
+  const sourceAngle = toAngle(sub(sourceOut, source));
+  const targetAngle = toAngle(sub(target, targetIn));
+
+  return {
+    d,
+    sourceAngle,
+    targetAngle,
+  };
+};
+
+const getEdgePathGeometry = (
+  source: Position,
+  target: Position,
+  sourceAnchor: Exclude<EdgeAnchor, "auto">,
+  targetAnchor: Exclude<EdgeAnchor, "auto">,
   route: EdgeRoute,
   curve: number,
 ) => {
   if (route === "straight") {
-    return getStraightPath(source, target);
+    return getStraightPathGeometry(source, target);
   }
 
   if (route === "elbow") {
-    return getElbowPath(source, target);
+    return getElbowPathGeometry(source, target, sourceAnchor, targetAnchor);
   }
 
-  return getCurvePath(source, target, curve);
-};
-
-const getTargetAnchorAngle = (anchor: Exclude<EdgeAnchor, "auto">) => {
-  switch (anchor) {
-    case "left":
-      return 0;
-    case "right":
-      return 180;
-    case "top":
-      return 90;
-    case "bottom":
-      return -90;
-  }
-};
-
-const getSourceAnchorAngle = (anchor: Exclude<EdgeAnchor, "auto">) => {
-  switch (anchor) {
-    case "left":
-      return 180;
-    case "right":
-      return 0;
-    case "top":
-      return -90;
-    case "bottom":
-      return 90;
-  }
+  return getCurvePathGeometry(source, target, sourceAnchor, targetAnchor, curve);
 };
 
 export function CanvasEdgeLayer({
@@ -210,22 +282,50 @@ export function CanvasEdgeLayer({
 
       const sourcePoint = getAnchorPoint(sourceBounds, sourceAnchor);
       const targetPoint = getAnchorPoint(targetBounds, targetAnchor);
-      const d = getEdgePath(
+      const geometry = getEdgePathGeometry(
         sourcePoint,
         targetPoint,
+        sourceAnchor,
+        targetAnchor,
         edge.route ?? "curve",
         edge.curve,
       );
-      const targetAngle = getTargetAnchorAngle(targetAnchor);
-      const sourceAngle = getSourceAnchorAngle(sourceAnchor);
+
+      let strokeSourcePoint = sourcePoint;
+      let strokeTargetPoint = targetPoint;
+
+      if (edge.arrowStart) {
+        const startDirection = directionFromAngle(geometry.sourceAngle);
+        strokeSourcePoint = add(
+          strokeSourcePoint,
+          mul(startDirection, ARROW_LENGTH * 0.92),
+        );
+      }
+
+      if (edge.arrowEnd) {
+        const endDirection = directionFromAngle(geometry.targetAngle);
+        strokeTargetPoint = sub(
+          strokeTargetPoint,
+          mul(endDirection, ARROW_LENGTH * 0.92),
+        );
+      }
+
+      const strokeGeometry = getEdgePathGeometry(
+        strokeSourcePoint,
+        strokeTargetPoint,
+        sourceAnchor,
+        targetAnchor,
+        edge.route ?? "curve",
+        edge.curve,
+      );
 
       return {
         edge,
-        d,
+        d: strokeGeometry.d,
         sourcePoint,
         targetPoint,
-        sourceAngle,
-        targetAngle,
+        sourceAngle: strokeGeometry.sourceAngle,
+        targetAngle: strokeGeometry.targetAngle,
       };
     })
     .filter(
@@ -293,50 +393,20 @@ export function CanvasEdgeLayer({
             />
             {edge.arrowStart ? (
               <motion.path
-                d="M0,0 L13,6.5 L0,13 z"
-                initial={
-                  shouldPlayEntrance
-                    ? {
-                        x: sourcePoint.x - 13,
-                        y: sourcePoint.y - 6.5,
-                        rotate: sourceAngle,
-                        opacity: 0,
-                      }
-                    : false
-                }
-                animate={{
-                  x: sourcePoint.x - 13,
-                  y: sourcePoint.y - 6.5,
-                  rotate: sourceAngle,
-                  opacity: arrowOpacityTarget,
-                }}
+                d={getArrowPath(sourcePoint, sourceAngle)}
+                initial={shouldPlayEntrance ? { opacity: 0 } : false}
+                animate={{ opacity: arrowOpacityTarget }}
                 transition={{ ...transition, delay: arrowDelay }}
                 fill={highlightColor}
-                style={{ transformOrigin: "13px 6.5px" }}
               />
             ) : null}
             {edge.arrowEnd ? (
               <motion.path
-                d="M0,0 L13,6.5 L0,13 z"
-                initial={
-                  shouldPlayEntrance
-                    ? {
-                        x: targetPoint.x - 13,
-                        y: targetPoint.y - 6.5,
-                        rotate: targetAngle,
-                        opacity: 0,
-                      }
-                    : false
-                }
-                animate={{
-                  x: targetPoint.x - 13,
-                  y: targetPoint.y - 6.5,
-                  rotate: targetAngle,
-                  opacity: arrowOpacityTarget,
-                }}
+                d={getArrowPath(targetPoint, targetAngle)}
+                initial={shouldPlayEntrance ? { opacity: 0 } : false}
+                animate={{ opacity: arrowOpacityTarget }}
                 transition={{ ...transition, delay: arrowDelay }}
                 fill={highlightColor}
-                style={{ transformOrigin: "13px 6.5px" }}
               />
             ) : null}
             <path
