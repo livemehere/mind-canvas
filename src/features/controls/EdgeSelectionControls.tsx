@@ -281,7 +281,11 @@ export function EdgeSelectionControls({
             "edge.curve",
             nextValue,
             (edge) => edge.curve,
-            (edge, value) => ({ ...edge, curve: value }),
+            (edge, value) => ({
+              ...edge,
+              route: "curve",
+              curve: value,
+            }),
           );
         },
         onEditStart: () => {

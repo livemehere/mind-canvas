@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Leva } from "leva";
-import { Eraser, Save, Trash2, Upload } from "lucide-react";
+import { Copy, Eraser, Save, Trash2, Upload } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ShortcutHelpOverlay } from "./components/app/ShortcutHelpOverlay";
 import { ViewportFocusPanel } from "./components/app/ViewportFocusPanel";
@@ -77,6 +77,7 @@ export default function App() {
   useEffect(() => installLevaTextareaEnterBehavior(), []);
 
   const {
+    copySnapshotsJsonToClipboard,
     saveSnapshotsToLocalStorage,
     loadSnapshotsFromJson,
     loadSnapshotsFromLocalStorage,
@@ -311,6 +312,14 @@ export default function App() {
                 title="Remove current snapshot (Cmd/Ctrl+Backspace)"
               >
                 <Trash2 size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => void copySnapshotsJsonToClipboard()}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+                title="Copy snapshots payload JSON to clipboard"
+              >
+                <Copy size={14} />
               </button>
               <button
                 type="button"

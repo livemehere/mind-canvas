@@ -20,6 +20,20 @@ export const useSnapshotStorage = ({
   hydrateSnapshots,
   clearSnapshots,
 }: UseSnapshotStorageOptions) => {
+  const copySnapshotsJsonToClipboard = useCallback(async () => {
+    const payload: SnapshotPayload = {
+      step,
+      snapShot,
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      toast.success("Copied snapshot JSON to clipboard");
+    } catch {
+      toast.error("Failed to copy snapshot JSON");
+    }
+  }, [snapShot, step]);
+
   const saveSnapshotsToLocalStorage = useCallback(() => {
     const payload: SnapshotPayload = {
       step,
@@ -98,6 +112,7 @@ export const useSnapshotStorage = ({
   }, [clearSnapshots]);
 
   return {
+    copySnapshotsJsonToClipboard,
     saveSnapshotsToLocalStorage,
     loadSnapshotsFromJson,
     loadSnapshotsFromLocalStorage,

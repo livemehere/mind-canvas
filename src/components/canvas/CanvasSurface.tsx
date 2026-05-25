@@ -1104,6 +1104,42 @@ export function CanvasSurface({
       )
     : undefined;
 
+  const measuredTextBoundsByNodeId = useMemo(() => {
+    if (!containerRef.current) {
+      return {};
+    }
+
+    const canvasRect = containerRef.current.getBoundingClientRect();
+    const result: Record<
+      string,
+      { left: number; right: number; top: number; bottom: number }
+    > = {};
+
+    nodes.forEach((node) => {
+      if (node.type !== "text") {
+        return;
+      }
+
+      const element = nodeRefs.current[node.id];
+      if (!element) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      result[node.id] = {
+        left: (rect.left - canvasRect.left - viewport.x) / viewport.scale,
+        right: (rect.right - canvasRect.left - viewport.x) / viewport.scale,
+        top: (rect.top - canvasRect.top - viewport.y) / viewport.scale,
+        bottom: (rect.bottom - canvasRect.top - viewport.y) / viewport.scale,
+      };
+    });
+
+    return result;
+  }, [nodes, viewport.scale, viewport.x, viewport.y]);
+
+  const getMeasuredTextBounds = (nodeId: string) =>
+    measuredTextBoundsByNodeId[nodeId];
+
   const getNodeCenterForHandle = (node: CanvasNode) => {
     if (node.type === "box") {
       return {
@@ -1142,6 +1178,25 @@ export function CanvasSurface({
           return { x: cx, y: y + height };
         case "auto":
           return { x: cx, y: cy };
+      }
+    }
+
+    const measuredBounds = getMeasuredTextBounds(node.id);
+    if (measuredBounds) {
+      const centerX = (measuredBounds.left + measuredBounds.right) / 2;
+      const centerY = (measuredBounds.top + measuredBounds.bottom) / 2;
+
+      switch (anchor) {
+        case "left":
+          return { x: measuredBounds.left, y: centerY };
+        case "right":
+          return { x: measuredBounds.right, y: centerY };
+        case "top":
+          return { x: centerX, y: measuredBounds.top };
+        case "bottom":
+          return { x: centerX, y: measuredBounds.bottom };
+        case "auto":
+          return { x: centerX, y: centerY };
       }
     }
 
@@ -1297,6 +1352,7 @@ export function CanvasSurface({
           edges={edges}
           activeEdgeIds={activeEdgeIds}
           previewOffsetByNodeId={previewOffsetByNodeId}
+          measuredBoundsByNodeId={measuredTextBoundsByNodeId}
           isPreviewing={dragPreview !== null}
           entranceEdgeIds={entranceEdgeIds}
           entranceRun={edgeEntranceRun}

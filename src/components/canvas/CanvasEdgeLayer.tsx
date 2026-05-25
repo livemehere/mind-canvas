@@ -17,6 +17,10 @@ interface Props {
   edges: CanvasEdge[];
   activeEdgeIds: string[];
   previewOffsetByNodeId?: Record<string, Position>;
+  measuredBoundsByNodeId?: Record<
+    string,
+    { left: number; right: number; top: number; bottom: number }
+  >;
   isPreviewing?: boolean;
   entranceEdgeIds?: string[];
   entranceRun?: number;
@@ -28,11 +32,17 @@ interface Props {
 
 const ARROW_LENGTH = 13;
 const ARROW_HALF_WIDTH = 6.5;
+const TEXT_EDGE_GUTTER = 10;
 
 const getNodeBounds = (
   node: CanvasNode,
   offset: Position | undefined,
+  measuredBounds?: { left: number; right: number; top: number; bottom: number },
 ): { left: number; right: number; top: number; bottom: number } => {
+  if (node.type === "text" && measuredBounds && !offset) {
+    return measuredBounds;
+  }
+
   const x = node.position.x + (offset?.x ?? 0);
   const y = node.position.y + (offset?.y ?? 0);
   const scale = Math.max(0.01, node.scale);
@@ -52,12 +62,26 @@ const getNodeBounds = (
   }
 
   const width =
-    Math.max(120, node.typography.fontSize * 2.5 + node.paddingX * 2) * scale;
-  const height = Math.max(
-    (node.typography.fontSize * node.typography.lineHeight + node.paddingY * 2) *
-      scale,
-    32,
-  );
+    Math.max(
+      120,
+      Math.max(
+        ...node.text
+          .split("\n")
+          .map(
+            (line) =>
+              line.length *
+              (node.typography.fontSize * 0.58 + node.typography.letterSpacing),
+          ),
+      ) +
+        node.paddingX * 2,
+    ) * scale;
+  const height =
+    Math.max(
+      node.text.split("\n").length *
+        (node.typography.fontSize * node.typography.lineHeight) +
+        node.paddingY * 2,
+      32,
+    ) * scale;
   return {
     left: x - width / 2,
     right: x + width / 2,
@@ -93,18 +117,20 @@ const resolveAutoAnchor = (
 const getAnchorPoint = (
   bounds: { left: number; right: number; top: number; bottom: number },
   anchor: Exclude<EdgeAnchor, "auto">,
+  options?: { outward?: number },
 ) => {
   const center = getCenter(bounds);
+  const outward = options?.outward ?? 0;
 
   switch (anchor) {
     case "left":
-      return { x: bounds.left, y: center.y };
+      return { x: bounds.left - outward, y: center.y };
     case "right":
-      return { x: bounds.right, y: center.y };
+      return { x: bounds.right + outward, y: center.y };
     case "top":
-      return { x: center.x, y: bounds.top };
+      return { x: center.x, y: bounds.top - outward };
     case "bottom":
-      return { x: center.x, y: bounds.bottom };
+      return { x: center.x, y: bounds.bottom + outward };
   }
 };
 
@@ -254,6 +280,7 @@ export function CanvasEdgeLayer({
   edges,
   activeEdgeIds,
   previewOffsetByNodeId,
+  measuredBoundsByNodeId,
   isPreviewing = false,
   entranceEdgeIds = [],
   entranceRun = 0,
@@ -286,10 +313,12 @@ export function CanvasEdgeLayer({
       const sourceBounds = getNodeBounds(
         sourceNode,
         previewOffsetByNodeId?.[sourceNode.id],
+        measuredBoundsByNodeId?.[sourceNode.id],
       );
       const targetBounds = getNodeBounds(
         targetNode,
         previewOffsetByNodeId?.[targetNode.id],
+        measuredBoundsByNodeId?.[targetNode.id],
       );
 
       const sourceCenter = getCenter(sourceBounds);
@@ -303,8 +332,12 @@ export function CanvasEdgeLayer({
           ? resolveAutoAnchor(targetCenter, sourceCenter)
           : edge.targetAnchor;
 
-      const sourcePoint = getAnchorPoint(sourceBounds, sourceAnchor);
-      const targetPoint = getAnchorPoint(targetBounds, targetAnchor);
+      const sourcePoint = getAnchorPoint(sourceBounds, sourceAnchor, {
+        outward: sourceNode.type === "text" ? TEXT_EDGE_GUTTER : 0,
+      });
+      const targetPoint = getAnchorPoint(targetBounds, targetAnchor, {
+        outward: targetNode.type === "text" ? TEXT_EDGE_GUTTER : 0,
+      });
       const geometry = getEdgePathGeometry(
         sourcePoint,
         targetPoint,
