@@ -63,15 +63,24 @@ export function CanvasSurface({
   linkedNodeIds = [],
   onDetachLinkedNodes = NOOP,
 }: CanvasSurfaceProps) {
+  const MIN_ZOOM = 0.25;
+  const MAX_ZOOM = 3;
+  const ZOOM_SENSITIVITY = 0.0015;
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const worldRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<Position | null>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const nodesRef = useRef(nodes);
   const dragSnapCacheRef = useRef<DragSnapCache | null>(null);
   const dragNodeIdsRef = useRef<string[] | null>(null);
   const dragAxisRef = useRef<"x" | "y" | null>(null);
+  const panPointerIdRef = useRef<number | null>(null);
+  const panStartClientRef = useRef<Position | null>(null);
+  const panStartViewportRef = useRef<{ x: number; y: number } | null>(null);
   const [measuredCanvasSize, setMeasuredCanvasSize] =
     useState<CanvasSize>(canvasSize);
+  const [viewport, setViewport] = useState({ x: 0, y: 0, scale: 1 });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null,
   );
@@ -100,6 +109,28 @@ export function CanvasSurface({
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePressed(true);
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePressed(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -190,13 +221,35 @@ export function CanvasSurface({
   const getCanvasPosition = (
     event: React.PointerEvent<HTMLDivElement>,
   ): Position => {
-    const rect = event.currentTarget.getBoundingClientRect();
+    return getCanvasPositionFromClient(
+      event.clientX,
+      event.clientY,
+      event.currentTarget,
+    );
+  };
+
+  const getCanvasPositionFromClient = (
+    clientX: number,
+    clientY: number,
+    target?: HTMLDivElement,
+  ): Position => {
+    const element = target ?? containerRef.current;
+    if (!element) {
+      return { x: 0, y: 0 };
+    }
+
+    const rect = element.getBoundingClientRect();
+    const pointerX = clientX - rect.left;
+    const pointerY = clientY - rect.top;
 
     return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: (pointerX - viewport.x) / viewport.scale,
+      y: (pointerY - viewport.y) / viewport.scale,
     };
   };
+
+  const isPanGesture = (event: React.PointerEvent<HTMLDivElement>) =>
+    event.button === 1 || (event.button === 0 && isSpacePressed);
 
   const setNodeRef = (nodeId: string, element: HTMLDivElement | null) => {
     nodeRefs.current[nodeId] = element;
@@ -215,10 +268,10 @@ export function CanvasSurface({
 
         const rect = element.getBoundingClientRect();
         const nodeBox = {
-          left: rect.left - canvasRect.left,
-          top: rect.top - canvasRect.top,
-          right: rect.right - canvasRect.left,
-          bottom: rect.bottom - canvasRect.top,
+          left: (rect.left - canvasRect.left - viewport.x) / viewport.scale,
+          top: (rect.top - canvasRect.top - viewport.y) / viewport.scale,
+          right: (rect.right - canvasRect.left - viewport.x) / viewport.scale,
+          bottom: (rect.bottom - canvasRect.top - viewport.y) / viewport.scale,
         };
 
         return isBoxInside(nodeBox, box);
@@ -235,7 +288,25 @@ export function CanvasSurface({
       return;
     }
 
-    if (event.target !== event.currentTarget) {
+    if (isPanGesture(event)) {
+      panPointerIdRef.current = event.pointerId;
+      panStartClientRef.current = { x: event.clientX, y: event.clientY };
+      panStartViewportRef.current = { x: viewport.x, y: viewport.y };
+      pointerStartRef.current = null;
+      setSelectionRect(null);
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.button !== 0) {
+      return;
+    }
+
+    if (
+      event.target !== event.currentTarget &&
+      event.target !== worldRef.current
+    ) {
       return;
     }
 
@@ -256,6 +327,21 @@ export function CanvasSurface({
       return;
     }
 
+    if (
+      panPointerIdRef.current === event.pointerId &&
+      panStartClientRef.current &&
+      panStartViewportRef.current
+    ) {
+      const deltaX = event.clientX - panStartClientRef.current.x;
+      const deltaY = event.clientY - panStartClientRef.current.y;
+      setViewport((prev) => ({
+        ...prev,
+        x: panStartViewportRef.current!.x + deltaX,
+        y: panStartViewportRef.current!.y + deltaY,
+      }));
+      return;
+    }
+
     if (!pointerStartRef.current || activeToolId !== "select") {
       return;
     }
@@ -268,6 +354,16 @@ export function CanvasSurface({
     event: React.PointerEvent<HTMLDivElement>,
   ) => {
     if (viewOnly) {
+      return;
+    }
+
+    if (panPointerIdRef.current === event.pointerId) {
+      panPointerIdRef.current = null;
+      panStartClientRef.current = null;
+      panStartViewportRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
       return;
     }
 
@@ -294,6 +390,41 @@ export function CanvasSurface({
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
+  const handleCanvasWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+
+    setViewport((prev) => {
+      const nextScale = Math.min(
+        MAX_ZOOM,
+        Math.max(
+          MIN_ZOOM,
+          prev.scale * Math.exp(-event.deltaY * ZOOM_SENSITIVITY),
+        ),
+      );
+
+      if (nextScale === prev.scale) {
+        return prev;
+      }
+
+      const worldX = (pointerX - prev.x) / prev.scale;
+      const worldY = (pointerY - prev.y) / prev.scale;
+
+      return {
+        x: pointerX - worldX * nextScale,
+        y: pointerY - worldY * nextScale,
+        scale: nextScale,
+      };
+    });
+  };
+
   const toggleNodeSelection = (nodeId: string) => {
     setActiveNodeIds(
       activeNodeIds.includes(nodeId)
@@ -307,6 +438,10 @@ export function CanvasSurface({
     node: CanvasNode,
   ) => {
     if (viewOnly) {
+      return;
+    }
+
+    if (isSpacePressed) {
       return;
     }
 
@@ -335,7 +470,10 @@ export function CanvasSurface({
       dragPreview?.nodeIds ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
 
-    const finalOffset = dragPreview?.offset ?? offset;
+    const finalOffset = dragPreview?.offset ?? {
+      x: offset.x / viewport.scale,
+      y: offset.y / viewport.scale,
+    };
 
     commitNodes((currentNodes) =>
       currentNodes.map((currentNode) => {
@@ -407,6 +545,7 @@ export function CanvasSurface({
         nodeRefs: nodeRefs.current,
         canvasRect,
         canvasSize: measuredCanvasSize,
+        viewport,
       });
     }
 
@@ -421,7 +560,7 @@ export function CanvasSurface({
   const handleNodeDrag = (
     node: CanvasNode,
     offset: { x: number; y: number },
-    modifiers: { shiftKey: boolean },
+    modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
   ) => {
     if (viewOnly) {
       return;
@@ -430,26 +569,31 @@ export function CanvasSurface({
     const movingNodeIds =
       dragNodeIdsRef.current ??
       (activeNodeIds.includes(node.id) ? activeNodeIds : [node.id]);
+    const scaledOffset = {
+      x: offset.x / viewport.scale,
+      y: offset.y / viewport.scale,
+    };
+    const shouldDisableSnap = modifiers.ctrlKey || modifiers.metaKey;
 
     if (modifiers.shiftKey && dragAxisRef.current === null) {
       dragAxisRef.current =
-        Math.abs(offset.x) >= Math.abs(offset.y) ? "x" : "y";
+        Math.abs(scaledOffset.x) >= Math.abs(scaledOffset.y) ? "x" : "y";
     }
 
     if (!modifiers.shiftKey) {
       dragAxisRef.current = null;
     }
 
-    let nextOffset = { x: offset.x, y: offset.y };
+    let nextOffset = { x: scaledOffset.x, y: scaledOffset.y };
     let guides: SnapGuide | undefined;
 
     if (dragAxisRef.current === "x") {
-      nextOffset = { x: offset.x, y: 0 };
+      nextOffset = { x: scaledOffset.x, y: 0 };
     } else if (dragAxisRef.current === "y") {
-      nextOffset = { x: 0, y: offset.y };
-    } else if (modifiers.shiftKey && dragSnapCacheRef.current) {
+      nextOffset = { x: 0, y: scaledOffset.y };
+    } else if (!shouldDisableSnap && dragSnapCacheRef.current) {
       const snappedPreview = getSnapPreviewOffset(
-        offset,
+        scaledOffset,
         dragSnapCacheRef.current,
       );
       nextOffset = snappedPreview.offset;
@@ -467,11 +611,18 @@ export function CanvasSurface({
   return (
     <div
       ref={containerRef}
-      className="h-full relative"
+      className="h-full relative overflow-hidden"
       style={{
         pointerEvents: viewOnly ? "none" : "auto",
         opacity: viewOnly ? 0.1 : 1,
+        cursor:
+          panPointerIdRef.current === null
+            ? isSpacePressed
+              ? "grab"
+              : "default"
+            : "grabbing",
       }}
+      onWheel={viewOnly ? undefined : handleCanvasWheel}
       onPointerDown={viewOnly ? undefined : handleBackgroundPointerDown}
       onPointerMove={viewOnly ? undefined : handleBackgroundPointerMove}
       onPointerUp={viewOnly ? undefined : handleBackgroundPointerUp}
@@ -485,46 +636,56 @@ export function CanvasSurface({
           onDetachLinkedNodes={onDetachLinkedNodes}
         />
       ) : null}
-      {nodes.map((node) => (
-        <CanvasNodeItem
-          key={
-            entranceNodeIds.includes(node.id)
-              ? `${node.id}:entrance:${entranceRun}`
-              : node.id
-          }
-          node={node}
-          isSelected={activeNodeIds.includes(node.id)}
-          canDrag={!viewOnly && activeToolId === "select"}
-          shouldPlayEntranceAnimation={entranceNodeIds.includes(node.id)}
-          isPreviewing={dragPreview?.nodeIds.includes(node.id) === true}
-          previewOffset={
-            dragPreview && dragPreview.nodeIds.includes(node.id)
-              ? dragPreview.offset
-              : undefined
-          }
-          setNodeRef={setNodeRef}
-          onRectNodeChange={updateRectNode}
-          onTextNodeChange={updateTextNode}
-          onPointerDown={handleNodePointerDown}
-          onDoubleClick={onNodeDoubleClick}
-          onDragStart={handleNodeDragStart}
-          onDrag={handleNodeDrag}
-          onDragEnd={handleNodeDragEnd}
-        />
-      ))}
-      {dragPreview?.guides?.x !== undefined ? (
-        <div
-          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-purple-400/80"
-          style={{ left: dragPreview.guides.x }}
-        />
-      ) : null}
-      {dragPreview?.guides?.y !== undefined ? (
-        <div
-          className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-purple-400/80"
-          style={{ top: dragPreview.guides.y }}
-        />
-      ) : null}
-      {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
+      <div
+        ref={worldRef}
+        className="absolute left-0 top-0 h-full w-full"
+        style={{
+          transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
+          transformOrigin: "0 0",
+          willChange: "transform",
+        }}
+      >
+        {nodes.map((node) => (
+          <CanvasNodeItem
+            key={
+              entranceNodeIds.includes(node.id)
+                ? `${node.id}:entrance:${entranceRun}`
+                : node.id
+            }
+            node={node}
+            isSelected={activeNodeIds.includes(node.id)}
+            canDrag={!viewOnly && activeToolId === "select" && !isSpacePressed}
+            shouldPlayEntranceAnimation={entranceNodeIds.includes(node.id)}
+            isPreviewing={dragPreview?.nodeIds.includes(node.id) === true}
+            previewOffset={
+              dragPreview && dragPreview.nodeIds.includes(node.id)
+                ? dragPreview.offset
+                : undefined
+            }
+            setNodeRef={setNodeRef}
+            onRectNodeChange={updateRectNode}
+            onTextNodeChange={updateTextNode}
+            onPointerDown={handleNodePointerDown}
+            onDoubleClick={onNodeDoubleClick}
+            onDragStart={handleNodeDragStart}
+            onDrag={handleNodeDrag}
+            onDragEnd={handleNodeDragEnd}
+          />
+        ))}
+        {dragPreview?.guides?.x !== undefined ? (
+          <div
+            className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-purple-400/80"
+            style={{ left: dragPreview.guides.x }}
+          />
+        ) : null}
+        {dragPreview?.guides?.y !== undefined ? (
+          <div
+            className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-purple-400/80"
+            style={{ top: dragPreview.guides.y }}
+          />
+        ) : null}
+        {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
+      </div>
     </div>
   );
 }

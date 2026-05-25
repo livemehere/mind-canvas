@@ -61,12 +61,12 @@ interface Props {
   onDrag: (
     node: CanvasNode,
     offset: { x: number; y: number },
-    modifiers: { shiftKey: boolean },
+    modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
   ) => void;
   onDragEnd: (
     node: CanvasNode,
     offset: { x: number; y: number },
-    modifiers: { shiftKey: boolean },
+    modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
   ) => void;
 }
 
@@ -190,9 +190,10 @@ export function CanvasNodeItem({
     const rawRotate = roundNumber(
       snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
     );
-    const nextRotate = modifiers.shiftKey
-      ? roundNumber(Math.round(rawRotate / 15) * 15)
-      : rawRotate;
+    const shouldFreeTransform = modifiers.ctrlKey || modifiers.metaKey;
+    const nextRotate = shouldFreeTransform
+      ? rawRotate
+      : roundNumber(Math.round(rawRotate / 15) * 15);
 
     if (node.type === "rect") {
       onRectNodeChange(
@@ -230,9 +231,10 @@ export function CanvasNodeItem({
     const rawRotate = roundNumber(
       snapshot.rotate + offset.x * ROTATE_SENSITIVITY,
     );
-    const nextRotate = modifiers.shiftKey
-      ? roundNumber(Math.round(rawRotate / 15) * 15)
-      : rawRotate;
+    const shouldFreeTransform = modifiers.ctrlKey || modifiers.metaKey;
+    const nextRotate = shouldFreeTransform
+      ? rawRotate
+      : roundNumber(Math.round(rawRotate / 15) * 15);
 
     if (node.type === "rect") {
       onRectNodeChange(node.id, (currentNode) => ({
@@ -336,7 +338,11 @@ export function CanvasNodeItem({
           return;
         }
 
-        onDrag(node, info.offset, { shiftKey: event.shiftKey });
+        onDrag(node, info.offset, {
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+        });
       }}
       onPanEnd={(event, info) => {
         if (isTransformHandleTarget(event.target)) {
@@ -348,7 +354,11 @@ export function CanvasNodeItem({
           return;
         }
 
-        onDragEnd(node, info.offset, { shiftKey: event.shiftKey });
+        onDragEnd(node, info.offset, {
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+        });
         canPanDragRef.current = false;
       }}
     >

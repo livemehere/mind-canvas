@@ -17,6 +17,8 @@ export interface ResizeHandleModifiers {
 
 export interface RotateHandleModifiers {
   shiftKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
 }
 
 interface Props {
@@ -134,6 +136,8 @@ const getRotateHandleModifiers = (
   event: PointerEvent | React.PointerEvent<HTMLElement>,
 ): RotateHandleModifiers => ({
   shiftKey: event.shiftKey,
+  ctrlKey: event.ctrlKey,
+  metaKey: event.metaKey,
 });
 
 function ResizeHandle({
@@ -222,7 +226,11 @@ export function CanvasNodeTransformHandles({
   onRotateEnd,
   resizeDirections = Object.keys(HANDLE_STYLES) as ResizeHandleDirection[],
 }: Props) {
-  const rotateModifiersRef = useRef<RotateHandleModifiers>({ shiftKey: false });
+  const rotateModifiersRef = useRef<RotateHandleModifiers>({
+    shiftKey: false,
+    ctrlKey: false,
+    metaKey: false,
+  });
   const rotateActiveRef = useRef(false);
 
   return (

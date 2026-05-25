@@ -22,17 +22,24 @@ export interface DragSnapCache {
   targetY: number[];
 }
 
+interface ViewportTransform {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 const DRAG_SNAP_THRESHOLD = 8;
 
 const getSnapBoundsFromElement = (
   element: HTMLDivElement,
   canvasRect: DOMRect,
+  viewport: ViewportTransform,
 ): SnapBounds => {
   const rect = element.getBoundingClientRect();
-  const left = rect.left - canvasRect.left;
-  const top = rect.top - canvasRect.top;
-  const right = rect.right - canvasRect.left;
-  const bottom = rect.bottom - canvasRect.top;
+  const left = (rect.left - canvasRect.left - viewport.x) / viewport.scale;
+  const top = (rect.top - canvasRect.top - viewport.y) / viewport.scale;
+  const right = (rect.right - canvasRect.left - viewport.x) / viewport.scale;
+  const bottom = (rect.bottom - canvasRect.top - viewport.y) / viewport.scale;
 
   return {
     left,
@@ -71,17 +78,19 @@ export const buildDragSnapCache = ({
   nodeRefs,
   canvasRect,
   canvasSize,
+  viewport,
 }: {
   movingNodeIds: string[];
   nodes: CanvasNode[];
   nodeRefs: Record<string, HTMLDivElement | null>;
   canvasRect: DOMRect;
   canvasSize: CanvasSize;
+  viewport: ViewportTransform;
 }): DragSnapCache | null => {
   const movingBoundsList = movingNodeIds
     .map((nodeId) => {
       const element = nodeRefs[nodeId];
-      return element ? getSnapBoundsFromElement(element, canvasRect) : null;
+      return element ? getSnapBoundsFromElement(element, canvasRect, viewport) : null;
     })
     .filter((bounds): bounds is SnapBounds => bounds !== null);
 
@@ -93,9 +102,12 @@ export const buildDragSnapCache = ({
     .filter((currentNode) => !movingNodeIds.includes(currentNode.id))
     .map((currentNode) => {
       const element = nodeRefs[currentNode.id];
-      return element ? getSnapBoundsFromElement(element, canvasRect) : null;
+      return element ? getSnapBoundsFromElement(element, canvasRect, viewport) : null;
     })
     .filter((bounds): bounds is SnapBounds => bounds !== null);
+
+  const viewportCenterX = (canvasSize.width / 2 - viewport.x) / viewport.scale;
+  const viewportCenterY = (canvasSize.height / 2 - viewport.y) / viewport.scale;
 
   return {
     movingX: movingBoundsList.flatMap((bounds) => [
@@ -114,7 +126,7 @@ export const buildDragSnapCache = ({
         bounds.centerX,
         bounds.right,
       ]),
-      canvasSize.width / 2,
+      viewportCenterX,
     ],
     targetY: [
       ...targetBounds.flatMap((bounds) => [
@@ -122,7 +134,7 @@ export const buildDragSnapCache = ({
         bounds.centerY,
         bounds.bottom,
       ]),
-      canvasSize.height / 2,
+      viewportCenterY,
     ],
   };
 };
