@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Leva } from "leva";
-import {
-  Eraser,
-  Home,
-  LocateFixed,
-  Save,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Eraser, Home, LocateFixed, Save, Trash2, Upload } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   CanvasSurface,
@@ -275,10 +268,7 @@ export default function App() {
       y: 24,
     });
 
-    setCurrentSnapShotNodes([
-      ...currentNodes,
-      ...duplicatedNodes,
-    ]);
+    setCurrentSnapShotNodes([...currentNodes, ...duplicatedNodes]);
     setActiveNodeIds(duplicatedNodes.map((node) => node.id));
     toast.success("Duplicated nodes");
   };
@@ -358,9 +348,7 @@ export default function App() {
     toast.success("Loaded snapshots from JSON");
   };
 
-  const loadSnapshotsFromLocalStorage = (options?: {
-    showToast?: boolean;
-  }) => {
+  const loadSnapshotsFromLocalStorage = (options?: { showToast?: boolean }) => {
     const raw = localStorage.getItem(SNAPSHOT_STORAGE_KEY);
     if (!raw) {
       return false;
@@ -408,6 +396,15 @@ export default function App() {
       nodeIds: activeNodeIds,
       fitPercent: focusFitPercent,
     });
+  };
+
+  const adjustFocusFitPercent = (deltaY: number) => {
+    if (deltaY === 0 || Object.is(deltaY, -0)) {
+      return;
+    }
+
+    const step = deltaY > 0 ? 5 : -5;
+    setFocusFitPercent((prev) => Math.max(0, Math.min(100, prev + step)));
   };
 
   const goToNextStepInCurrentMode = () => {
@@ -506,45 +503,45 @@ export default function App() {
       <div className="h-full relative">
         {!isPresentationMode ? (
           <div className="absolute left-1/2 bottom-20 z-10 -translate-x-1/2">
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-950/85 px-3 py-2 text-xs font-medium text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
-            <span className="tracking-[0.2em] text-white/45">STEP</span>
-            <span className="min-w-16 text-center text-sm font-semibold tracking-tight text-white">
-              {step} / {snapShotLength - 1}
-            </span>
-            <button
-              type="button"
-              onClick={removeCurrentStep}
-              disabled={snapShotLength === 1}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-              title="Remove current snapshot (Cmd/Ctrl+Backspace)"
-            >
-              <Trash2 size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={saveSnapshotsToLocalStorage}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
-              title="Save snapshots to localStorage (Cmd/Ctrl+S)"
-            >
-              <Save size={14} />
-            </button>
-          <button
-            type="button"
-            onClick={loadSnapshotsFromJson}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
-              title="Load snapshots from JSON and store to localStorage"
-            >
-              <Upload size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={clearSavedSnapshots}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
-              title="Clear localStorage snapshots and canvas"
-            >
-              <Eraser size={14} />
-            </button>
-          </div>
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-950/85 px-3 py-2 text-xs font-medium text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
+              <span className="tracking-[0.2em] text-white/45">STEP</span>
+              <span className="min-w-16 text-center text-sm font-semibold tracking-tight text-white">
+                {step} / {snapShotLength - 1}
+              </span>
+              <button
+                type="button"
+                onClick={removeCurrentStep}
+                disabled={snapShotLength === 1}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                title="Remove current snapshot (Cmd/Ctrl+Backspace)"
+              >
+                <Trash2 size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={saveSnapshotsToLocalStorage}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+                title="Save snapshots to localStorage (Cmd/Ctrl+S)"
+              >
+                <Save size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={loadSnapshotsFromJson}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+                title="Load snapshots from JSON and store to localStorage"
+              >
+                <Upload size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={clearSavedSnapshots}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/6 text-white/80 transition hover:bg-white/12 hover:text-white"
+                title="Clear localStorage snapshots and canvas"
+              >
+                <Eraser size={14} />
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -575,11 +572,17 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
                 <div className="text-white/70">Select cursor</div>
-                <div className="font-mono text-white/90">{HOTKEY_SELECT_CURSOR}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_SELECT_CURSOR}
+                </div>
                 <div className="text-white/70">Rect tool</div>
-                <div className="font-mono text-white/90">{HOTKEY_RECT_TOOL}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_RECT_TOOL}
+                </div>
                 <div className="text-white/70">Text tool</div>
-                <div className="font-mono text-white/90">{HOTKEY_TEXT_TOOL}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_TEXT_TOOL}
+                </div>
                 <div className="text-white/70">Toggle history overlay</div>
                 <div className="font-mono text-white/90">
                   {HOTKEY_TOGGLE_HISTORY_OVERLAY}
@@ -592,6 +595,8 @@ export default function App() {
                 <div className="font-mono text-white/90">
                   {HOTKEY_FOCUS_SELECTED_NODES}
                 </div>
+                <div className="text-white/70">Adjust focus fit (5%)</div>
+                <div className="font-mono text-white/90">Shift + Wheel</div>
                 <div className="text-white/70">Undo / Redo</div>
                 <div className="font-mono text-white/90">
                   {HOTKEY_UNDO} / {HOTKEY_REDO}
@@ -601,15 +606,25 @@ export default function App() {
                   {HOTKEY_COPY} / {HOTKEY_CUT}
                 </div>
                 <div className="text-white/70">Duplicate selection</div>
-                <div className="font-mono text-white/90">{HOTKEY_DUPLICATE_TO_NEXT}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_DUPLICATE_TO_NEXT}
+                </div>
                 <div className="text-white/70">Edit selected node</div>
-                <div className="font-mono text-white/90">{HOTKEY_ENTER_EDIT}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_ENTER_EDIT}
+                </div>
                 <div className="text-white/70">Delete selected node</div>
-                <div className="font-mono text-white/90">{HOTKEY_DELETE_NODE}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_DELETE_NODE}
+                </div>
                 <div className="text-white/70">Remove current snapshot</div>
-                <div className="font-mono text-white/90">{HOTKEY_REMOVE_SNAPSHOT}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_REMOVE_SNAPSHOT}
+                </div>
                 <div className="text-white/70">Save snapshots</div>
-                <div className="font-mono text-white/90">{HOTKEY_SAVE_SNAPSHOTS}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_SAVE_SNAPSHOTS}
+                </div>
                 <div className="text-white/70">Reset to origin</div>
                 <div className="font-mono text-white/90">
                   {HOTKEY_RESET_VIEWPORT_TO_ORIGIN}
@@ -619,7 +634,9 @@ export default function App() {
                   {HOTKEY_PREVIOUS_STEP} / {HOTKEY_NEXT_STEP}
                 </div>
                 <div className="text-white/70">Toggle this help</div>
-                <div className="font-mono text-white/90">{HOTKEY_TOGGLE_SHORTCUT_HELP}</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_TOGGLE_SHORTCUT_HELP}
+                </div>
               </div>
             </div>
           </div>
@@ -659,64 +676,65 @@ export default function App() {
             focusRequest={focusRequest}
             resetToOriginToken={resetToOriginToken}
             showControls={!isPresentationMode}
+            onShiftWheel={adjustFocusFitPercent}
           />
         </div>
 
         {!isPresentationMode ? (
           <div className="absolute left-5 top-5 z-10 flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={resetViewportToOrigin}
-            onMouseDown={preventButtonFocus}
-            tabIndex={-1}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-neutral-950/85 px-3 text-xs font-medium text-white/80 shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition hover:bg-white/12 hover:text-white"
-            title="Reset pan/zoom to origin (Cmd/Ctrl+0)"
-          >
-            <Home size={14} />
-            <span>Origin</span>
-          </button>
-          <div className="inline-flex h-9 items-center gap-2 px-3 text-[11px] font-semibold tracking-[0.08em] text-white/70 w-0 whitespace-nowrap">
-            <span className="text-white/40">PAN</span>
-            <span className="font-mono text-white/85">
-              X {viewport.x.toFixed(0)}
-            </span>
-            <span className="text-white/30">/</span>
-            <span className="font-mono text-white/85">
-              Y {viewport.y.toFixed(0)}
-            </span>
-          </div>
-          <div className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-neutral-950/70 px-2 text-[11px] font-semibold tracking-[0.06em] text-white/75 shadow-[0_10px_32px_rgba(0,0,0,0.22)]">
-            <span className="px-1 text-white/45">FIT</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={focusFitPercent}
-              onChange={(event) => {
-                const value = Number.parseInt(event.target.value, 10);
-                if (Number.isNaN(value)) {
-                  setFocusFitPercent(0);
-                  return;
-                }
-
-                setFocusFitPercent(Math.max(0, Math.min(100, value)));
-              }}
-              className="h-6 w-12 rounded border border-white/15 bg-white/5 px-1 text-right font-mono text-xs text-white/90 outline-none transition focus:border-white/35"
-              title="Focus fit ratio (0-100%)"
-            />
-            <span className="text-white/45">%</span>
             <button
               type="button"
-              onClick={focusSelectedNodes}
+              onClick={resetViewportToOrigin}
               onMouseDown={preventButtonFocus}
               tabIndex={-1}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded border border-white/10 bg-white/5 px-2 text-[10px] font-semibold text-white/80 transition hover:bg-white/12 hover:text-white"
-              title="Focus selected nodes"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-neutral-950/85 px-3 text-xs font-medium text-white/80 shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition hover:bg-white/12 hover:text-white"
+              title="Reset pan/zoom to origin (Cmd/Ctrl+0)"
             >
-              <LocateFixed size={12} />
-              <span>Focus</span>
+              <Home size={14} />
+              <span>Origin</span>
             </button>
-          </div>
+            <div className="inline-flex h-9 items-center gap-2 px-3 text-[11px] font-semibold tracking-[0.08em] text-white/70 w-0 whitespace-nowrap">
+              <span className="text-white/40">PAN</span>
+              <span className="font-mono text-white/85">
+                X {viewport.x.toFixed(0)}
+              </span>
+              <span className="text-white/30">/</span>
+              <span className="font-mono text-white/85">
+                Y {viewport.y.toFixed(0)}
+              </span>
+            </div>
+            <div className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-neutral-950/70 px-2 text-[11px] font-semibold tracking-[0.06em] text-white/75 shadow-[0_10px_32px_rgba(0,0,0,0.22)]">
+              <span className="px-1 text-white/45">FIT</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={focusFitPercent}
+                onChange={(event) => {
+                  const value = Number.parseInt(event.target.value, 10);
+                  if (Number.isNaN(value)) {
+                    setFocusFitPercent(0);
+                    return;
+                  }
+
+                  setFocusFitPercent(Math.max(0, Math.min(100, value)));
+                }}
+                className="h-6 w-12 rounded border border-white/15 bg-white/5 px-1 text-right font-mono text-xs text-white/90 outline-none transition focus:border-white/35"
+                title="Focus fit ratio (0-100%)"
+              />
+              <span className="text-white/45">%</span>
+              <button
+                type="button"
+                onClick={focusSelectedNodes}
+                onMouseDown={preventButtonFocus}
+                tabIndex={-1}
+                className="inline-flex h-7 items-center justify-center gap-1 rounded border border-white/10 bg-white/5 px-2 text-[10px] font-semibold text-white/80 transition hover:bg-white/12 hover:text-white"
+                title="Focus selected nodes"
+              >
+                <LocateFixed size={12} />
+                <span>Focus</span>
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -728,24 +746,24 @@ export default function App() {
 
         {!isPresentationMode ? (
           <CanvasToolbar
-          activeToolId={activeToolId}
-          setActiveToolId={setActiveToolId}
-          syncMatchingIdEdits={syncMatchingIdEdits}
-          setSyncMatchingIdEdits={setSyncMatchingIdEdits}
-          showPreviousOverlay={showPreviousOverlay}
-          setShowPreviousOverlay={setShowPreviousOverlay}
-          autoAddSnapshotOnAdvance={autoAddSnapshotOnAdvance}
-          setAutoAddSnapshotOnAdvance={setAutoAddSnapshotOnAdvance}
-          duplicateNodesIntoNewSnapshot={duplicateNodesIntoNewSnapshot}
-          setDuplicateNodesIntoNewSnapshot={setDuplicateNodesIntoNewSnapshot}
-        />
+            activeToolId={activeToolId}
+            setActiveToolId={setActiveToolId}
+            syncMatchingIdEdits={syncMatchingIdEdits}
+            setSyncMatchingIdEdits={setSyncMatchingIdEdits}
+            showPreviousOverlay={showPreviousOverlay}
+            setShowPreviousOverlay={setShowPreviousOverlay}
+            autoAddSnapshotOnAdvance={autoAddSnapshotOnAdvance}
+            setAutoAddSnapshotOnAdvance={setAutoAddSnapshotOnAdvance}
+            duplicateNodesIntoNewSnapshot={duplicateNodesIntoNewSnapshot}
+            setDuplicateNodesIntoNewSnapshot={setDuplicateNodesIntoNewSnapshot}
+          />
         ) : null}
 
         {!isPresentationMode ? (
           <Leva
-          hidden={activeNodeIds.length === 0}
-          titleBar={{ position: { x: 0, y: 24 } }}
-        />
+            hidden={activeNodeIds.length === 0}
+            titleBar={{ position: { x: 0, y: 24 } }}
+          />
         ) : null}
       </div>
     </>

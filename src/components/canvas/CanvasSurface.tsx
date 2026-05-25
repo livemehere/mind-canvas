@@ -73,6 +73,7 @@ export interface CanvasSurfaceProps {
   showOriginAxes?: boolean;
   focusRequest?: CanvasFocusRequest | null;
   resetToOriginToken?: number;
+  onShiftWheel?: (deltaY: number) => void;
 }
 
 export function CanvasSurface({
@@ -95,6 +96,7 @@ export function CanvasSurface({
   showOriginAxes = !viewOnly,
   focusRequest = null,
   resetToOriginToken,
+  onShiftWheel,
 }: CanvasSurfaceProps) {
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 3;
@@ -286,10 +288,19 @@ export function CanvasSurface({
 
     previousResetTokenRef.current = resetToOriginToken;
     updateViewport(getOriginCenteredViewport());
-  }, [measuredCanvasSize.height, measuredCanvasSize.width, resetToOriginToken, viewOnly]);
+  }, [
+    measuredCanvasSize.height,
+    measuredCanvasSize.width,
+    resetToOriginToken,
+    viewOnly,
+  ]);
 
   useEffect(() => {
-    if (!focusRequest || focusRequest.nodeIds.length === 0 || !containerRef.current) {
+    if (
+      !focusRequest ||
+      focusRequest.nodeIds.length === 0 ||
+      !containerRef.current
+    ) {
       return;
     }
 
@@ -307,7 +318,9 @@ export function CanvasSurface({
     }
 
     const worldRect = containerRef.current.getBoundingClientRect();
-    const boxes = targetElements.map((element) => element.getBoundingClientRect());
+    const boxes = targetElements.map((element) =>
+      element.getBoundingClientRect(),
+    );
 
     const left = Math.min(...boxes.map((rect) => rect.left));
     const right = Math.max(...boxes.map((rect) => rect.right));
@@ -607,6 +620,13 @@ export function CanvasSurface({
 
   const handleCanvasWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (!containerRef.current) {
+      return;
+    }
+
+    if (event.shiftKey) {
+      event.preventDefault();
+      const shiftWheelDelta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+      onShiftWheel?.(shiftWheelDelta);
       return;
     }
 
