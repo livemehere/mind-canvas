@@ -119,6 +119,7 @@ export function CanvasSurface({
   const [uncontrolledViewport, setUncontrolledViewport] =
     useState<CanvasViewport>({ x: 0, y: 0, scale: 1 });
   const viewport = controlledViewport ?? uncontrolledViewport;
+  const viewportRef = useRef(viewport);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null,
@@ -148,6 +149,10 @@ export function CanvasSurface({
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -211,10 +216,13 @@ export function CanvasSurface({
       | CanvasViewport
       | ((currentViewport: CanvasViewport) => CanvasViewport),
   ) => {
+    const currentViewport = viewportRef.current;
     const nextViewport =
       typeof nextViewportOrUpdater === "function"
-        ? nextViewportOrUpdater(viewport)
+        ? nextViewportOrUpdater(currentViewport)
         : nextViewportOrUpdater;
+
+    viewportRef.current = nextViewport;
 
     if (!controlledViewport) {
       setUncontrolledViewport(nextViewport);
