@@ -11,19 +11,13 @@ import {
 } from "./components/canvas/CanvasSurface";
 import { CanvasToolbar } from "./components/canvas/CanvasToolbar";
 import { type CanvasToolId } from "./components/canvas/types";
-import {
-  type CanvasNode,
-  type Position,
-} from "./core/nodes";
+import { type CanvasNode, type Position } from "./core/nodes";
 import {
   installLevaTextareaEnterBehavior,
   requestControlFocus,
 } from "./features/controls/focus";
 import { isEditableElementFocused } from "./features/hotkeys/helpers";
-import {
-  createRectNode,
-  createTextNode,
-} from "./features/nodes/helpers";
+import { createRectNode, createTextNode } from "./features/nodes/helpers";
 import { useCanvasHotkeys } from "./features/app/useCanvasHotkeys";
 import { useGlobalPasteHandler } from "./features/app/useGlobalPasteHandler";
 import { useCanvasSelectionActions } from "./features/app/useCanvasSelectionActions";
@@ -435,7 +429,6 @@ export default function App() {
         {!isPresentationMode ? (
           <Leva
             hidden={activeNodeIds.length === 0 && activeEdgeIds.length === 0}
-            titleBar={{ position: { x: 0, y: 24 } }}
             theme={{
               sizes: {
                 rootWidth: "420px",
