@@ -102,7 +102,7 @@ export function AlignControls({
   };
 
   return (
-    <div className="absolute left-5 top-20 z-20 rounded-lg border border-white/10 bg-neutral-950/85 p-3 backdrop-blur">
+    <div className="absolute left-[224px] top-4 z-20 rounded-lg border border-white/10 bg-neutral-950/85 p-3 backdrop-blur">
       <div className="mb-2 text-xs font-medium text-white/70">Selection</div>
       <div className="grid grid-cols-3 gap-1.5">
         {ALIGN_ACTIONS.map((action) => (

@@ -1,5 +1,25 @@
 import { useHotkeys } from "react-hotkeys-hook";
 import { oncePerKeypress } from "../hotkeys/helpers";
+import {
+  HOTKEY_COPY,
+  HOTKEY_CUT,
+  HOTKEY_DELETE_NODE,
+  HOTKEY_DUPLICATE_TO_NEXT,
+  HOTKEY_ENTER_EDIT,
+  HOTKEY_ESCAPE,
+  HOTKEY_NEXT_STEP,
+  HOTKEY_PREVIOUS_STEP,
+  HOTKEY_RECT_TOOL,
+  HOTKEY_REDO,
+  HOTKEY_REMOVE_SNAPSHOT,
+  HOTKEY_RESET_VIEWPORT_TO_ORIGIN,
+  HOTKEY_SAVE_SNAPSHOTS,
+  HOTKEY_SELECT_CURSOR,
+  HOTKEY_TEXT_TOOL,
+  HOTKEY_TOGGLE_HISTORY_OVERLAY,
+  HOTKEY_TOGGLE_SHORTCUT_HELP,
+  HOTKEY_UNDO,
+} from "../hotkeys/keys";
 
 interface UseCanvasHotkeysOptions {
   onSelectTool: () => void;
@@ -17,6 +37,7 @@ interface UseCanvasHotkeysOptions {
   onRemoveSnapshot: () => void;
   onSave: () => void;
   onResetViewport: () => void;
+  onToggleShortcutHelp: () => void;
   onStepPrev: () => void;
   onStepNext: () => void;
 }
@@ -37,42 +58,47 @@ export const useCanvasHotkeys = ({
   onRemoveSnapshot,
   onSave,
   onResetViewport,
+  onToggleShortcutHelp,
   onStepPrev,
   onStepNext,
 }: UseCanvasHotkeysOptions) => {
-  useHotkeys("q", oncePerKeypress(onSelectTool));
-  useHotkeys("w", oncePerKeypress(onRectTool));
-  useHotkeys("e", oncePerKeypress(onTextTool));
+  useHotkeys(HOTKEY_SELECT_CURSOR, oncePerKeypress(onSelectTool));
+  useHotkeys(HOTKEY_RECT_TOOL, oncePerKeypress(onRectTool));
+  useHotkeys(HOTKEY_TEXT_TOOL, oncePerKeypress(onTextTool));
   useHotkeys(
-    "meta+z,ctrl+z",
+    HOTKEY_UNDO,
     oncePerKeypress(onUndo, { preventDefault: true }),
   );
   useHotkeys(
-    "meta+shift+z,ctrl+shift+z",
+    HOTKEY_REDO,
     oncePerKeypress(onRedo, { preventDefault: true }),
   );
+  useHotkeys(HOTKEY_COPY, oncePerKeypress(onCopy, { preventDefault: true }));
+  useHotkeys(HOTKEY_CUT, oncePerKeypress(onCut, { preventDefault: true }));
   useHotkeys(
-    "meta+c,ctrl+c",
-    oncePerKeypress(onCopy, { preventDefault: true }),
-  );
-  useHotkeys("meta+x,ctrl+x", oncePerKeypress(onCut, { preventDefault: true }));
-  useHotkeys(
-    "meta+d,ctrl+d",
+    HOTKEY_DUPLICATE_TO_NEXT,
     oncePerKeypress(onDuplicate, { preventDefault: true }),
   );
-  useHotkeys("Enter", oncePerKeypress(onEnter, { preventDefault: true }));
-  useHotkeys("shift+o", oncePerKeypress(onToggleOverlay));
-  useHotkeys("Escape", oncePerKeypress(onEscape));
-  useHotkeys("Backspace", oncePerKeypress(onBackspace));
+  useHotkeys(HOTKEY_ENTER_EDIT, oncePerKeypress(onEnter, { preventDefault: true }));
+  useHotkeys(HOTKEY_TOGGLE_HISTORY_OVERLAY, oncePerKeypress(onToggleOverlay));
+  useHotkeys(HOTKEY_ESCAPE, oncePerKeypress(onEscape));
+  useHotkeys(HOTKEY_DELETE_NODE, oncePerKeypress(onBackspace));
   useHotkeys(
-    "meta+backspace,ctrl+backspace",
+    HOTKEY_REMOVE_SNAPSHOT,
     oncePerKeypress(onRemoveSnapshot, { preventDefault: true }),
   );
-  useHotkeys("meta+s,ctrl+s", oncePerKeypress(onSave, { preventDefault: true }));
   useHotkeys(
-    "meta+0,ctrl+0",
+    HOTKEY_SAVE_SNAPSHOTS,
+    oncePerKeypress(onSave, { preventDefault: true }),
+  );
+  useHotkeys(
+    HOTKEY_RESET_VIEWPORT_TO_ORIGIN,
     oncePerKeypress(onResetViewport, { preventDefault: true }),
   );
-  useHotkeys("1,left", oncePerKeypress(onStepPrev));
-  useHotkeys("2,right", oncePerKeypress(onStepNext));
+  useHotkeys(
+    HOTKEY_TOGGLE_SHORTCUT_HELP,
+    oncePerKeypress(onToggleShortcutHelp, { preventDefault: true }),
+  );
+  useHotkeys(HOTKEY_PREVIOUS_STEP, oncePerKeypress(onStepPrev));
+  useHotkeys(HOTKEY_NEXT_STEP, oncePerKeypress(onStepNext));
 };
