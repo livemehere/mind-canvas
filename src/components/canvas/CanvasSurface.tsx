@@ -67,6 +67,7 @@ export interface CanvasSurfaceProps {
   entranceNodeIds?: string[];
   linkedNodeIds?: string[];
   onDetachLinkedNodes?: () => void;
+  additionalSnapNodes?: CanvasNode[];
   viewport?: CanvasViewport;
   onViewportChange?: (nextViewport: CanvasViewport) => void;
   showOriginAxes?: boolean;
@@ -88,6 +89,7 @@ export function CanvasSurface({
   entranceNodeIds = [],
   linkedNodeIds = [],
   onDetachLinkedNodes = NOOP,
+  additionalSnapNodes = [],
   viewport: controlledViewport,
   onViewportChange,
   showOriginAxes = !viewOnly,
@@ -755,6 +757,7 @@ export function CanvasSurface({
       dragSnapCacheRef.current = buildDragSnapCache({
         movingNodeIds,
         nodes: nodesRef.current,
+        additionalSnapNodes,
         nodeRefs: nodeRefs.current,
         canvasRect,
         canvasSize: measuredCanvasSize,
@@ -886,20 +889,20 @@ export function CanvasSurface({
             onDragEnd={handleNodeDragEnd}
           />
         ))}
-        {dragPreview?.guides?.x !== undefined ? (
-          <div
-            className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-purple-400/80"
-            style={{ left: dragPreview.guides.x }}
-          />
-        ) : null}
-        {dragPreview?.guides?.y !== undefined ? (
-          <div
-            className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-purple-400/80"
-            style={{ top: dragPreview.guides.y }}
-          />
-        ) : null}
         {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
       </div>
+      {dragPreview?.guides?.x !== undefined ? (
+        <div
+          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-purple-400/80"
+          style={{ left: viewport.x + dragPreview.guides.x * viewport.scale }}
+        />
+      ) : null}
+      {dragPreview?.guides?.y !== undefined ? (
+        <div
+          className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-purple-400/80"
+          style={{ top: viewport.y + dragPreview.guides.y * viewport.scale }}
+        />
+      ) : null}
       {showOriginAxes ? (
         <>
           <div

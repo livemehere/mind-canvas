@@ -12,6 +12,7 @@ export const HOTKEY_ENTER_EDIT = "enter";
 export const HOTKEY_TOGGLE_HISTORY_OVERLAY = "h";
 export const HOTKEY_TOGGLE_PRESENTATION_MODE = "p";
 export const HOTKEY_TOGGLE_SHORTCUT_HELP = "f1";
+export const HOTKEY_FOCUS_SELECTED_NODES = "f";
 export const HOTKEY_ESCAPE = "escape";
 export const HOTKEY_DELETE_NODE = "backspace";
 export const HOTKEY_REMOVE_SNAPSHOT = "meta+backspace,ctrl+backspace";

@@ -75,6 +75,7 @@ const getBestSnap = (points: number[], targets: number[]) => {
 export const buildDragSnapCache = ({
   movingNodeIds,
   nodes,
+  additionalSnapNodes,
   nodeRefs,
   canvasRect,
   canvasSize,
@@ -82,6 +83,7 @@ export const buildDragSnapCache = ({
 }: {
   movingNodeIds: string[];
   nodes: CanvasNode[];
+  additionalSnapNodes?: CanvasNode[];
   nodeRefs: Record<string, HTMLDivElement | null>;
   canvasRect: DOMRect;
   canvasSize: CanvasSize;
@@ -106,6 +108,31 @@ export const buildDragSnapCache = ({
     })
     .filter((bounds): bounds is SnapBounds => bounds !== null);
 
+  const logicalAdditionalBounds = (additionalSnapNodes ?? []).map((node) => {
+    if (node.type === "rect") {
+      const width = node.size.width * node.scale;
+      const height = node.size.height * node.scale;
+
+      return {
+        left: node.position.x,
+        right: node.position.x + width,
+        top: node.position.y,
+        bottom: node.position.y + height,
+        centerX: node.position.x + width / 2,
+        centerY: node.position.y + height / 2,
+      } satisfies SnapBounds;
+    }
+
+    return {
+      left: node.position.x,
+      right: node.position.x,
+      top: node.position.y,
+      bottom: node.position.y,
+      centerX: node.position.x,
+      centerY: node.position.y,
+    } satisfies SnapBounds;
+  });
+
   const viewportCenterX = (canvasSize.width / 2 - viewport.x) / viewport.scale;
   const viewportCenterY = (canvasSize.height / 2 - viewport.y) / viewport.scale;
 
@@ -126,10 +153,20 @@ export const buildDragSnapCache = ({
         bounds.centerX,
         bounds.right,
       ]),
+      ...logicalAdditionalBounds.flatMap((bounds) => [
+        bounds.left,
+        bounds.centerX,
+        bounds.right,
+      ]),
       viewportCenterX,
     ],
     targetY: [
       ...targetBounds.flatMap((bounds) => [
+        bounds.top,
+        bounds.centerY,
+        bounds.bottom,
+      ]),
+      ...logicalAdditionalBounds.flatMap((bounds) => [
         bounds.top,
         bounds.centerY,
         bounds.bottom,

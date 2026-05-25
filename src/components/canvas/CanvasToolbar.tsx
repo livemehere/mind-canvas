@@ -65,6 +65,16 @@ export function CanvasToolbar({
           </button>
         ))}
         <button
+          onClick={() => setShowPreviousOverlay((prev) => !prev)}
+          className={cn(
+            "rounded-xl bg-neutral-800/90 p-2 text-white/80 transition hover:opacity-80 active:scale-90",
+            showPreviousOverlay && "bg-purple-600 text-white",
+          )}
+          title="Toggle previous overlay"
+        >
+          {showPreviousOverlay ? <Eye size={18} /> : <EyeOff size={18} />}
+        </button>
+        <button
           type="button"
           onClick={() => setSyncMatchingIdEdits((prev) => !prev)}
           className={cn(
@@ -74,16 +84,6 @@ export function CanvasToolbar({
           title="Apply final edits to nodes with the same id across snapshots"
         >
           Same ID
-        </button>
-        <button
-          onClick={() => setShowPreviousOverlay((prev) => !prev)}
-          className={cn(
-            "rounded-xl bg-neutral-800/90 p-2 text-white/80 transition hover:opacity-80 active:scale-90",
-            showPreviousOverlay && "bg-purple-600 text-white",
-          )}
-          title="Toggle previous overlay (Shift+O)"
-        >
-          {showPreviousOverlay ? <Eye size={18} /> : <EyeOff size={18} />}
         </button>
         <button
           type="button"

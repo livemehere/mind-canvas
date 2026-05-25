@@ -38,6 +38,7 @@ import {
   HOTKEY_DUPLICATE_TO_NEXT,
   HOTKEY_ENTER_EDIT,
   HOTKEY_ESCAPE,
+  HOTKEY_FOCUS_SELECTED_NODES,
   HOTKEY_NEXT_STEP,
   HOTKEY_PREVIOUS_STEP,
   HOTKEY_RECT_TOOL,
@@ -264,34 +265,22 @@ export default function App() {
     return true;
   };
 
-  const duplicateSelectedNodesToNextSnapshot = () => {
+  const duplicateSelectedNodes = () => {
     if (selectedNodes.length === 0) {
       return;
     }
 
-    const targetStep = step + 1;
-    if (targetStep >= snapShot.length) {
-      toast.warning("Next snapshot does not exist");
-      return;
-    }
+    const duplicatedNodes = offsetNodes(regenerateNodeIds(selectedNodes), {
+      x: 24,
+      y: 24,
+    });
 
-    const targetNodes = snapShot[targetStep].nodes;
-    const hasDuplicateId = selectedNodes.some((node) =>
-      targetNodes.some((targetNode) => targetNode.id === node.id),
-    );
-
-    if (hasDuplicateId) {
-      toast.warning("Next snapshot already has one of those ids");
-      return;
-    }
-
-    commitNodesToStep(targetStep, [
-      ...targetNodes,
-      ...structuredClone(selectedNodes),
+    setCurrentSnapShotNodes([
+      ...currentNodes,
+      ...duplicatedNodes,
     ]);
-    goToStep(targetStep);
-    setActiveNodeIds(selectedNodes.map((node) => node.id));
-    toast.success("Copied to next snapshot");
+    setActiveNodeIds(duplicatedNodes.map((node) => node.id));
+    toast.success("Duplicated nodes");
   };
 
   const detachLinkedSelectedNodes = () => {
@@ -451,7 +440,7 @@ export default function App() {
     onRedo: redo,
     onCopy: () => void copySelectedNodes(),
     onCut: () => void cutSelectedNodes(),
-    onDuplicate: duplicateSelectedNodesToNextSnapshot,
+    onDuplicate: duplicateSelectedNodes,
     onEnter: () => {
       if (isEditableElementFocused() || selectedNodes.length !== 1) {
         return;
@@ -489,6 +478,7 @@ export default function App() {
     onSave: saveSnapshotsToLocalStorage,
     onResetViewport: resetViewportToOrigin,
     onTogglePresentationMode: () => setIsPresentationMode((prev) => !prev),
+    onFocusSelectedNodes: focusSelectedNodes,
     onToggleShortcutHelp: () => setShowShortcutOverlay((prev) => !prev),
     onStepPrev: () => {
       if (step === 0) {
@@ -598,6 +588,10 @@ export default function App() {
                 <div className="font-mono text-white/90">
                   {HOTKEY_TOGGLE_PRESENTATION_MODE}
                 </div>
+                <div className="text-white/70">Focus selected nodes</div>
+                <div className="font-mono text-white/90">
+                  {HOTKEY_FOCUS_SELECTED_NODES}
+                </div>
                 <div className="text-white/70">Undo / Redo</div>
                 <div className="font-mono text-white/90">
                   {HOTKEY_UNDO} / {HOTKEY_REDO}
@@ -606,7 +600,7 @@ export default function App() {
                 <div className="font-mono text-white/90">
                   {HOTKEY_COPY} / {HOTKEY_CUT}
                 </div>
-                <div className="text-white/70">Duplicate to next step</div>
+                <div className="text-white/70">Duplicate selection</div>
                 <div className="font-mono text-white/90">{HOTKEY_DUPLICATE_TO_NEXT}</div>
                 <div className="text-white/70">Edit selected node</div>
                 <div className="font-mono text-white/90">{HOTKEY_ENTER_EDIT}</div>
@@ -658,6 +652,7 @@ export default function App() {
             onDetachLinkedNodes={detachLinkedSelectedNodes}
             onClickBackground={handleClickBackground}
             onNodeDoubleClick={handleNodeDoubleClick}
+            additionalSnapNodes={showPreviousOverlay ? previousNodes : []}
             viewport={viewport}
             onViewportChange={setViewport}
             showOriginAxes={!isPresentationMode}

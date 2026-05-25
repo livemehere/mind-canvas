@@ -7,6 +7,7 @@ import {
   HOTKEY_DUPLICATE_TO_NEXT,
   HOTKEY_ENTER_EDIT,
   HOTKEY_ESCAPE,
+  HOTKEY_FOCUS_SELECTED_NODES,
   HOTKEY_NEXT_STEP,
   HOTKEY_PREVIOUS_STEP,
   HOTKEY_RECT_TOOL,
@@ -39,6 +40,7 @@ interface UseCanvasHotkeysOptions {
   onSave: () => void;
   onResetViewport: () => void;
   onTogglePresentationMode: () => void;
+  onFocusSelectedNodes: () => void;
   onToggleShortcutHelp: () => void;
   onStepPrev: () => void;
   onStepNext: () => void;
@@ -61,6 +63,7 @@ export const useCanvasHotkeys = ({
   onSave,
   onResetViewport,
   onTogglePresentationMode,
+  onFocusSelectedNodes,
   onToggleShortcutHelp,
   onStepPrev,
   onStepNext,
@@ -102,6 +105,7 @@ export const useCanvasHotkeys = ({
     HOTKEY_TOGGLE_PRESENTATION_MODE,
     oncePerKeypress(onTogglePresentationMode),
   );
+  useHotkeys(HOTKEY_FOCUS_SELECTED_NODES, oncePerKeypress(onFocusSelectedNodes));
   useHotkeys(
     HOTKEY_TOGGLE_SHORTCUT_HELP,
     oncePerKeypress(onToggleShortcutHelp, { preventDefault: true }),
