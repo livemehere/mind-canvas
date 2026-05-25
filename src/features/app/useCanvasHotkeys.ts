@@ -16,6 +16,7 @@ interface UseCanvasHotkeysOptions {
   onBackspace: () => void;
   onRemoveSnapshot: () => void;
   onSave: () => void;
+  onResetViewport: () => void;
   onStepPrev: () => void;
   onStepNext: () => void;
 }
@@ -35,6 +36,7 @@ export const useCanvasHotkeys = ({
   onBackspace,
   onRemoveSnapshot,
   onSave,
+  onResetViewport,
   onStepPrev,
   onStepNext,
 }: UseCanvasHotkeysOptions) => {
@@ -67,6 +69,10 @@ export const useCanvasHotkeys = ({
     oncePerKeypress(onRemoveSnapshot, { preventDefault: true }),
   );
   useHotkeys("meta+s,ctrl+s", oncePerKeypress(onSave, { preventDefault: true }));
+  useHotkeys(
+    "meta+0,ctrl+0",
+    oncePerKeypress(onResetViewport, { preventDefault: true }),
+  );
   useHotkeys("1,left", oncePerKeypress(onStepPrev));
   useHotkeys("2,right", oncePerKeypress(onStepNext));
 };

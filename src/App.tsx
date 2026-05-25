@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Leva } from "leva";
-import { Eraser, Save, Trash2, Upload } from "lucide-react";
+import { Crosshair, Eraser, Home, Save, Trash2, Upload } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { CanvasSurface } from "./components/canvas/CanvasSurface";
+import {
+  CanvasSurface,
+  type CanvasViewport,
+} from "./components/canvas/CanvasSurface";
 import { CanvasToolbar } from "./components/canvas/CanvasToolbar";
 import { type CanvasToolId } from "./components/canvas/types";
 import { type CanvasNode, type Position, type Snapshot } from "./core/nodes";
@@ -20,7 +23,10 @@ import { offsetNodes } from "./features/snapshots/history";
 import { useCanvasHotkeys } from "./features/app/useCanvasHotkeys";
 import { useGlobalPasteHandler } from "./features/app/useGlobalPasteHandler";
 import { useSnapshotState } from "./features/app/useSnapshotState";
-import { readNodesFromClipboard, writeNodesToClipboard } from "./utils/clipboard";
+import {
+  readNodesFromClipboard,
+  writeNodesToClipboard,
+} from "./utils/clipboard";
 
 const SNAPSHOT_STORAGE_KEY = "mind-canvas:snapshots";
 
@@ -72,6 +78,12 @@ const normalizeSnapshotPayload = (value: unknown): SnapshotPayload | null => {
 
 export default function App() {
   const [activeToolId, setActiveToolId] = useState<CanvasToolId>("select");
+  const [viewport, setViewport] = useState<CanvasViewport>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  });
+  const [showOriginAxes, setShowOriginAxes] = useState(true);
   const {
     step,
     snapShot,
@@ -238,7 +250,10 @@ export default function App() {
       return;
     }
 
-    commitNodesToStep(targetStep, [...targetNodes, ...structuredClone(selectedNodes)]);
+    commitNodesToStep(targetStep, [
+      ...targetNodes,
+      ...structuredClone(selectedNodes),
+    ]);
     goToStep(targetStep);
     setActiveNodeIds(selectedNodes.map((node) => node.id));
     toast.success("Copied to next snapshot");
@@ -251,7 +266,9 @@ export default function App() {
     }
 
     const detachedNodeIdMap = new Map(
-      linkedNodeIds.map((nodeId) => [nodeId, window.crypto.randomUUID()] as const),
+      linkedNodeIds.map(
+        (nodeId) => [nodeId, window.crypto.randomUUID()] as const,
+      ),
     );
 
     setCurrentSnapShotNodes(
@@ -270,7 +287,9 @@ export default function App() {
     setActiveNodeIds(
       activeNodeIds.map((nodeId) => detachedNodeIdMap.get(nodeId) ?? nodeId),
     );
-    toast.success(linkedNodeIds.length === 1 ? "Node detached" : "Nodes detached");
+    toast.success(
+      linkedNodeIds.length === 1 ? "Node detached" : "Nodes detached",
+    );
   };
 
   const saveSnapshotsToLocalStorage = () => {
@@ -321,6 +340,11 @@ export default function App() {
     toast.success("Cleared localStorage snapshots");
   };
 
+  const resetViewportToOrigin = () => {
+    setViewport({ x: 0, y: 0, scale: 1 });
+    toast.success("Viewport reset to origin");
+  };
+
   useCanvasHotkeys({
     onSelectTool: () => setActiveToolId("select"),
     onRectTool: () => setActiveToolId("rect"),
@@ -360,6 +384,7 @@ export default function App() {
     },
     onRemoveSnapshot: removeCurrentStep,
     onSave: saveSnapshotsToLocalStorage,
+    onResetViewport: resetViewportToOrigin,
     onStepPrev: () => {
       if (step === 0) {
         toast.warning("Already at the first step");
@@ -435,6 +460,7 @@ export default function App() {
               activeNodeIds={[]}
               entranceNodeIds={[]}
               linkedNodeIds={[]}
+              showOriginAxes={false}
             />
           ) : null}
         </div>
@@ -451,7 +477,37 @@ export default function App() {
             onDetachLinkedNodes={detachLinkedSelectedNodes}
             onClickBackground={handleClickBackground}
             onNodeDoubleClick={handleNodeDoubleClick}
+            viewport={viewport}
+            onViewportChange={setViewport}
+            showOriginAxes={showOriginAxes}
           />
+        </div>
+
+        <div className="absolute left-5 top-5 z-10 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={resetViewportToOrigin}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-neutral-950/85 px-3 text-xs font-medium text-white/80 shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition hover:bg-white/12 hover:text-white"
+            title="Reset pan/zoom to origin (Cmd/Ctrl+0)"
+          >
+            <Home size={14} />
+            <span>Origin</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowOriginAxes((prev) => !prev)}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-neutral-950/85 px-3 text-xs font-medium text-white/80 shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition hover:bg-white/12 hover:text-white"
+            title={showOriginAxes ? "Hide origin axes" : "Show origin axes"}
+          >
+            <Crosshair size={13} />
+            <span>{showOriginAxes ? "Axis On" : "Axis Off"}</span>
+          </button>
+          <div className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-black/35 px-3 text-[11px] font-semibold tracking-[0.08em] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <span className="text-white/40">PAN</span>
+            <span className="font-mono text-white/85">X {viewport.x.toFixed(0)}</span>
+            <span className="text-white/30">/</span>
+            <span className="font-mono text-white/85">Y {viewport.y.toFixed(0)}</span>
+          </div>
         </div>
 
         <CanvasToolbar

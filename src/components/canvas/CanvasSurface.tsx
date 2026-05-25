@@ -29,6 +29,12 @@ import {
 } from "../../features/snap/helpers";
 import { NOOP } from "../../utils/noop";
 
+export interface CanvasViewport {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 export interface CanvasSurfaceProps {
   nodes: CanvasNode[];
   setNodes?: (
@@ -46,6 +52,9 @@ export interface CanvasSurfaceProps {
   entranceNodeIds?: string[];
   linkedNodeIds?: string[];
   onDetachLinkedNodes?: () => void;
+  viewport?: CanvasViewport;
+  onViewportChange?: (nextViewport: CanvasViewport) => void;
+  showOriginAxes?: boolean;
 }
 
 export function CanvasSurface({
@@ -62,6 +71,9 @@ export function CanvasSurface({
   entranceNodeIds = [],
   linkedNodeIds = [],
   onDetachLinkedNodes = NOOP,
+  viewport: controlledViewport,
+  onViewportChange,
+  showOriginAxes = !viewOnly,
 }: CanvasSurfaceProps) {
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 3;
@@ -79,7 +91,9 @@ export function CanvasSurface({
   const panStartViewportRef = useRef<{ x: number; y: number } | null>(null);
   const [measuredCanvasSize, setMeasuredCanvasSize] =
     useState<CanvasSize>(canvasSize);
-  const [viewport, setViewport] = useState({ x: 0, y: 0, scale: 1 });
+  const [uncontrolledViewport, setUncontrolledViewport] =
+    useState<CanvasViewport>({ x: 0, y: 0, scale: 1 });
+  const viewport = controlledViewport ?? uncontrolledViewport;
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(
     null,
@@ -165,6 +179,23 @@ export function CanvasSurface({
     const nextNodes = updater(nodesRef.current);
     nodesRef.current = nextNodes;
     setNodes(nextNodes, options);
+  };
+
+  const updateViewport = (
+    nextViewportOrUpdater:
+      | CanvasViewport
+      | ((currentViewport: CanvasViewport) => CanvasViewport),
+  ) => {
+    const nextViewport =
+      typeof nextViewportOrUpdater === "function"
+        ? nextViewportOrUpdater(viewport)
+        : nextViewportOrUpdater;
+
+    if (!controlledViewport) {
+      setUncontrolledViewport(nextViewport);
+    }
+
+    onViewportChange?.(nextViewport);
   };
 
   const updateSelectedNodes = (
@@ -334,7 +365,7 @@ export function CanvasSurface({
     ) {
       const deltaX = event.clientX - panStartClientRef.current.x;
       const deltaY = event.clientY - panStartClientRef.current.y;
-      setViewport((prev) => ({
+      updateViewport((prev) => ({
         ...prev,
         x: panStartViewportRef.current!.x + deltaX,
         y: panStartViewportRef.current!.y + deltaY,
@@ -401,7 +432,7 @@ export function CanvasSurface({
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
 
-    setViewport((prev) => {
+    updateViewport((prev) => {
       const nextScale = Math.min(
         MAX_ZOOM,
         Math.max(
@@ -686,6 +717,18 @@ export function CanvasSurface({
         ) : null}
         {viewOnly ? null : <SelectionOverlay selectionRect={selectionRect} />}
       </div>
+      {showOriginAxes ? (
+        <>
+          <div
+            className="pointer-events-none absolute left-0 right-0 border-t border-dotted border-white/20"
+            style={{ top: viewport.y }}
+          />
+          <div
+            className="pointer-events-none absolute top-0 bottom-0 border-l border-dotted border-white/20"
+            style={{ left: viewport.x }}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
