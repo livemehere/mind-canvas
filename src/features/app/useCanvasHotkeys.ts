@@ -17,6 +17,7 @@ import {
   HOTKEY_SELECT_CURSOR,
   HOTKEY_TEXT_TOOL,
   HOTKEY_TOGGLE_HISTORY_OVERLAY,
+  HOTKEY_TOGGLE_PRESENTATION_MODE,
   HOTKEY_TOGGLE_SHORTCUT_HELP,
   HOTKEY_UNDO,
 } from "../hotkeys/keys";
@@ -37,6 +38,7 @@ interface UseCanvasHotkeysOptions {
   onRemoveSnapshot: () => void;
   onSave: () => void;
   onResetViewport: () => void;
+  onTogglePresentationMode: () => void;
   onToggleShortcutHelp: () => void;
   onStepPrev: () => void;
   onStepNext: () => void;
@@ -58,6 +60,7 @@ export const useCanvasHotkeys = ({
   onRemoveSnapshot,
   onSave,
   onResetViewport,
+  onTogglePresentationMode,
   onToggleShortcutHelp,
   onStepPrev,
   onStepNext,
@@ -94,6 +97,10 @@ export const useCanvasHotkeys = ({
   useHotkeys(
     HOTKEY_RESET_VIEWPORT_TO_ORIGIN,
     oncePerKeypress(onResetViewport, { preventDefault: true }),
+  );
+  useHotkeys(
+    HOTKEY_TOGGLE_PRESENTATION_MODE,
+    oncePerKeypress(onTogglePresentationMode),
   );
   useHotkeys(
     HOTKEY_TOGGLE_SHORTCUT_HELP,

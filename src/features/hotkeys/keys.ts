@@ -10,6 +10,7 @@ export const HOTKEY_DUPLICATE_TO_NEXT = "meta+d,ctrl+d";
 
 export const HOTKEY_ENTER_EDIT = "enter";
 export const HOTKEY_TOGGLE_HISTORY_OVERLAY = "h";
+export const HOTKEY_TOGGLE_PRESENTATION_MODE = "p";
 export const HOTKEY_TOGGLE_SHORTCUT_HELP = "f1";
 export const HOTKEY_ESCAPE = "escape";
 export const HOTKEY_DELETE_NODE = "backspace";
