@@ -187,7 +187,12 @@ Edge Geometry Notes (from current renderer)
 - If sourceAnchor/targetAnchor is "auto", anchor side is chosen by center-to-center direction:
   - horizontal dominance => left/right
   - vertical dominance => top/bottom
-- Text node bounds are measured from actual rendered DOM for edge anchor positioning.
+- Box node anchor positions are derived from node data (position, size, scale).
+- Text node anchor positions are derived from:
+  - node data for center/position
+  - measured DOM text width/height for size
+- Important: edge logic should not depend on animated screen-space DOM position for text nodes during step transitions.
+- This avoids edge wobble when viewport scale changes or when step transitions animate text nodes.
 - Text edge anchors are rendered with an outward gutter so arrowheads are less likely to be hidden by text backgrounds.
 - For cleaner lines, prefer explicit anchors on structured layouts:
   - horizontal chains: sourceAnchor="right", targetAnchor="left", route="straight"
@@ -216,6 +221,7 @@ Text Sizing and Gap Heuristics
 - Section/body text (30-44): keep vertical gaps of 80-110 between rows.
 - Label chips (30-36 with padding): keep horizontal gaps of 340-460 between centers.
 - When text has multi-line content, increase surrounding node distance before adding edges.
+- When connecting to large text nodes, prefer even more horizontal breathing room so left/right anchors remain visually clear.
 
 Practical Step Patterns (recommended)
 - 2-step pattern: (1) overview, (2) takeaway.
@@ -261,6 +267,17 @@ Morphing vs Entrance Replay
   - persistent title node that changes text/position/scale/rotate over time
   - persistent phase badge that changes color/label/location
   - persistent detail card that updates body copy gradually
+- For stable morphing across many steps, a practical pattern is to reuse 2-4 persistent nodes and update their text, typography, color, position, scale, and rotate values over time.
+
+Authoring Rules For Stable Edges
+- Prefer explicit anchors over auto when the intended flow is obvious.
+- For text-to-text horizontal flows, prefer:
+  - sourceAnchor="right"
+  - targetAnchor="left"
+  - route="straight"
+- Avoid packing many connected text nodes too close together.
+- If a step transition changes text content drastically, leave extra space because measured text width may change.
+- If the goal is maximum stability, prefer moving a small set of persistent nodes instead of replacing many nodes per step.
 
 Agent Prompting Template
 - System behavior for the JSON generator:
