@@ -1,6 +1,6 @@
 import { useControls } from "leva";
 import { useEffect, useRef } from "react";
-import { type TextNode } from "../../core/nodes";
+import { DEFAULT_TEXT_SHADOW_STYLE, type TextNode } from "../../core/nodes";
 import {
   MIXED_HINT,
   clearNumericEditSession,
@@ -44,6 +44,32 @@ export function TextSelectionControls({
   const paddingY = getSharedValue(
     nodes.map((node) => node.paddingY),
     0,
+  );
+  const textShadowEnabled = getSharedValue(
+    nodes.map((node) => node.textShadow?.enabled ?? DEFAULT_TEXT_SHADOW_STYLE.enabled),
+    DEFAULT_TEXT_SHADOW_STYLE.enabled,
+  );
+  const textShadowX = getSharedValue(
+    nodes.map((node) => node.textShadow?.x ?? DEFAULT_TEXT_SHADOW_STYLE.x),
+    DEFAULT_TEXT_SHADOW_STYLE.x,
+  );
+  const textShadowY = getSharedValue(
+    nodes.map((node) => node.textShadow?.y ?? DEFAULT_TEXT_SHADOW_STYLE.y),
+    DEFAULT_TEXT_SHADOW_STYLE.y,
+  );
+  const textShadowBlur = getSharedValue(
+    nodes.map((node) => node.textShadow?.blur ?? DEFAULT_TEXT_SHADOW_STYLE.blur),
+    DEFAULT_TEXT_SHADOW_STYLE.blur,
+  );
+  const textShadowColor = getSharedValue(
+    nodes.map((node) => node.textShadow?.color ?? DEFAULT_TEXT_SHADOW_STYLE.color),
+    DEFAULT_TEXT_SHADOW_STYLE.color,
+  );
+  const textShadowOpacity = getSharedValue(
+    nodes.map(
+      (node) => node.textShadow?.opacity ?? DEFAULT_TEXT_SHADOW_STYLE.opacity,
+    ),
+    DEFAULT_TEXT_SHADOW_STYLE.opacity,
   );
   const typography = getTypographySharedValues(nodes, (node) => node.typography);
 
@@ -207,6 +233,211 @@ export function TextSelectionControls({
           endEdit();
         },
       },
+      textShadowEnabled: {
+        value: textShadowEnabled.value,
+        hint: textShadowEnabled.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextEnabled: boolean,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text"
+                ? {
+                    ...node,
+                    textShadow: {
+                      ...(node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE),
+                      enabled: nextEnabled,
+                    },
+                  }
+                : node,
+            { commitHistory: false },
+          );
+        },
+      },
+      textShadowX: {
+        value: textShadowX.mixed ? 0 : textShadowX.value,
+        hint: textShadowX.mixed ? MIXED_HINT : undefined,
+        step: 1,
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          applyNumericChange(
+            "text.textShadowX",
+            nextValue,
+            (node) => node.textShadow?.x ?? DEFAULT_TEXT_SHADOW_STYLE.x,
+            (node, value) => ({
+              ...node,
+              textShadow: {
+                ...(node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE),
+                x: value,
+              },
+            }),
+          );
+        },
+        onEditStart: () => {
+          startEdit();
+          startNumericEditSession(
+            sessionsRef,
+            "text.textShadowX",
+            nodes,
+            (node) => node.textShadow?.x ?? DEFAULT_TEXT_SHADOW_STYLE.x,
+            textShadowX.mixed ? 0 : textShadowX.value,
+            textShadowX.mixed,
+          );
+        },
+        onEditEnd: () => {
+          commitSelectedNodes();
+          clearNumericEditSession(sessionsRef, "text.textShadowX");
+          endEdit();
+        },
+      },
+      textShadowY: {
+        value: textShadowY.mixed ? 0 : textShadowY.value,
+        hint: textShadowY.mixed ? MIXED_HINT : undefined,
+        step: 1,
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          applyNumericChange(
+            "text.textShadowY",
+            nextValue,
+            (node) => node.textShadow?.y ?? DEFAULT_TEXT_SHADOW_STYLE.y,
+            (node, value) => ({
+              ...node,
+              textShadow: {
+                ...(node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE),
+                y: value,
+              },
+            }),
+          );
+        },
+        onEditStart: () => {
+          startEdit();
+          startNumericEditSession(
+            sessionsRef,
+            "text.textShadowY",
+            nodes,
+            (node) => node.textShadow?.y ?? DEFAULT_TEXT_SHADOW_STYLE.y,
+            textShadowY.mixed ? 0 : textShadowY.value,
+            textShadowY.mixed,
+          );
+        },
+        onEditEnd: () => {
+          commitSelectedNodes();
+          clearNumericEditSession(sessionsRef, "text.textShadowY");
+          endEdit();
+        },
+      },
+      textShadowBlur: {
+        value: textShadowBlur.mixed ? 0 : textShadowBlur.value,
+        hint: textShadowBlur.mixed ? MIXED_HINT : undefined,
+        step: 1,
+        min: 0,
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          applyNumericChange(
+            "text.textShadowBlur",
+            nextValue,
+            (node) => node.textShadow?.blur ?? DEFAULT_TEXT_SHADOW_STYLE.blur,
+            (node, value) => ({
+              ...node,
+              textShadow: {
+                ...(node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE),
+                blur: value,
+              },
+            }),
+          );
+        },
+        onEditStart: () => {
+          startEdit();
+          startNumericEditSession(
+            sessionsRef,
+            "text.textShadowBlur",
+            nodes,
+            (node) => node.textShadow?.blur ?? DEFAULT_TEXT_SHADOW_STYLE.blur,
+            textShadowBlur.mixed ? 0 : textShadowBlur.value,
+            textShadowBlur.mixed,
+          );
+        },
+        onEditEnd: () => {
+          commitSelectedNodes();
+          clearNumericEditSession(sessionsRef, "text.textShadowBlur");
+          endEdit();
+        },
+      },
+      textShadowColor: {
+        value: textShadowColor.value,
+        hint: textShadowColor.mixed ? MIXED_HINT : undefined,
+        onEditStart: startEdit,
+        onEditEnd: () => {
+          commitSelectedNodes();
+          endEdit();
+        },
+        onChange: (
+          nextColor: string,
+          _: string,
+          context: LevaOnChangeContext,
+        ) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          updateSelectedNodes(
+            (node) =>
+              node.type === "text"
+                ? {
+                    ...node,
+                    textShadow: {
+                      ...(node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE),
+                      color: nextColor,
+                    },
+                  }
+                : node,
+            { commitHistory: false },
+          );
+        },
+      },
+      textShadowOpacity: {
+        value: textShadowOpacity.mixed ? 0 : textShadowOpacity.value,
+        hint: textShadowOpacity.mixed ? MIXED_HINT : undefined,
+        step: 0.01,
+        min: 0,
+        max: 1,
+        onChange: (nextValue: number, _: string, context: LevaOnChangeContext) => {
+          if (shouldIgnoreLevaChange(context)) return;
+          applyNumericChange(
+            "text.textShadowOpacity",
+            nextValue,
+            (node) => node.textShadow?.opacity ?? DEFAULT_TEXT_SHADOW_STYLE.opacity,
+            (node, value) => ({
+              ...node,
+              textShadow: {
+                ...(node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE),
+                opacity: value,
+              },
+            }),
+          );
+        },
+        onEditStart: () => {
+          startEdit();
+          startNumericEditSession(
+            sessionsRef,
+            "text.textShadowOpacity",
+            nodes,
+            (node) => node.textShadow?.opacity ?? DEFAULT_TEXT_SHADOW_STYLE.opacity,
+            textShadowOpacity.mixed ? 0 : textShadowOpacity.value,
+            textShadowOpacity.mixed,
+          );
+        },
+        onEditEnd: () => {
+          commitSelectedNodes();
+          clearNumericEditSession(sessionsRef, "text.textShadowOpacity");
+          endEdit();
+        },
+      },
       ...createTypographyControls<TextNode>({
         prefix: "text",
         typography,
@@ -234,6 +465,18 @@ export function TextSelectionControls({
       paddingX.mixed,
       paddingY.value,
       paddingY.mixed,
+      textShadowEnabled.value,
+      textShadowEnabled.mixed,
+      textShadowX.value,
+      textShadowX.mixed,
+      textShadowY.value,
+      textShadowY.mixed,
+      textShadowBlur.value,
+      textShadowBlur.mixed,
+      textShadowColor.value,
+      textShadowColor.mixed,
+      textShadowOpacity.value,
+      textShadowOpacity.mixed,
       ...typographyDependencyList(typography),
     ],
   );
@@ -245,6 +488,12 @@ export function TextSelectionControls({
       color: color.value,
       paddingX: paddingX.mixed ? 0 : paddingX.value,
       paddingY: paddingY.mixed ? 0 : paddingY.value,
+      textShadowEnabled: textShadowEnabled.value,
+      textShadowX: textShadowX.mixed ? 0 : textShadowX.value,
+      textShadowY: textShadowY.mixed ? 0 : textShadowY.value,
+      textShadowBlur: textShadowBlur.mixed ? 0 : textShadowBlur.value,
+      textShadowColor: textShadowColor.value,
+      textShadowOpacity: textShadowOpacity.mixed ? 0 : textShadowOpacity.value,
       ...typographySyncValues(typography),
     },
     isEditingRef,

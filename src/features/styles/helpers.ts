@@ -1,11 +1,72 @@
 import { type CSSProperties } from "react";
 import {
+  DEFAULT_BOX_SHADOW_STYLE,
+  DEFAULT_TEXT_SHADOW_STYLE,
   type EntranceAnimation,
+  type BoxShadowStyle,
   type CanvasNode,
   type RectNode,
+  type TextShadowStyle,
   type TextNode,
   type Typography,
 } from "../../core/nodes";
+
+const hexToRgb = (value: string) => {
+  const normalized = value.trim().replace(/^#/, "");
+
+  if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(normalized)) {
+    return null;
+  }
+
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized;
+
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+
+  if ([r, g, b].some((channel) => Number.isNaN(channel))) {
+    return null;
+  }
+
+  return { r, g, b };
+};
+
+const toRgbaColor = (color: string, opacity: number) => {
+  const clampedOpacity = Math.max(0, Math.min(1, opacity));
+
+  const rgbaMatch = color.match(
+    /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+)?\s*\)$/i,
+  );
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch;
+    return `rgba(${r}, ${g}, ${b}, ${clampedOpacity})`;
+  }
+
+  const rgb = hexToRgb(color);
+  if (!rgb) {
+    return `rgba(0, 0, 0, ${clampedOpacity})`;
+  }
+
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${clampedOpacity})`;
+};
+
+const getTextShadowStyle = (shadow: TextShadowStyle) => {
+  const opacity = shadow.enabled ? shadow.opacity : 0;
+
+  return `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${toRgbaColor(shadow.color, opacity)}`;
+};
+
+const getBoxShadowStyle = (shadow: BoxShadowStyle) => {
+  const opacity = shadow.enabled ? shadow.opacity : 0;
+
+  return `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.spread}px ${toRgbaColor(shadow.color, opacity)}`;
+};
 
 export const getNodeTransition = (
   node: CanvasNode,
@@ -159,12 +220,16 @@ export const getNodeStyle = (node: CanvasNode) => {
         backgroundSize: node.backgroundImage ? node.backgroundSize : undefined,
         borderRadius: node.radius,
         border: `${node.borderWidth}px solid ${node.borderColor}`,
+        boxShadow: getBoxShadowStyle(node.boxShadow ?? DEFAULT_BOX_SHADOW_STYLE),
       };
     case "text":
       return {
         backgroundColor: node.bgColor,
         borderRadius: node.radius,
         border: `${node.borderWidth}px solid ${node.borderColor}`,
+        textShadow: getTextShadowStyle(
+          node.textShadow ?? DEFAULT_TEXT_SHADOW_STYLE,
+        ),
       };
     default:
       return {};

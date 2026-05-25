@@ -763,6 +763,12 @@ export default function App() {
           <Leva
             hidden={activeNodeIds.length === 0}
             titleBar={{ position: { x: 0, y: 24 } }}
+            theme={{
+              sizes: {
+                rootWidth: "420px",
+                controlWidth: "220px",
+              },
+            }}
           />
         ) : null}
       </div>

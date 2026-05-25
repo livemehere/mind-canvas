@@ -1,7 +1,7 @@
 let pendingControlFocusKey: string | null = null;
 
 const CONTROL_LABEL_BY_KEY: Record<string, string> = {
-  "rect.content": "content",
+  "rect.content": "contentText.content",
   "text.text": "text",
 };
 

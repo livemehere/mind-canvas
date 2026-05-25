@@ -24,6 +24,19 @@ export type TextAlign = (typeof TEXT_ALIGN_OPTIONS)[number];
 export type FontStyle = (typeof FONT_STYLE_OPTIONS)[number];
 export type RectBackgroundSize = (typeof RECT_BACKGROUND_SIZE_OPTIONS)[number];
 
+export interface TextShadowStyle {
+  enabled: boolean;
+  x: number;
+  y: number;
+  blur: number;
+  color: string;
+  opacity: number;
+}
+
+export interface BoxShadowStyle extends TextShadowStyle {
+  spread: number;
+}
+
 export interface Typography {
   fontSize: number;
   fontFamily: string;
@@ -67,6 +80,7 @@ export interface RectNode extends BaseNode {
   };
   backgroundImage?: string;
   backgroundSize: RectBackgroundSize;
+  boxShadow: BoxShadowStyle;
   content: string;
   contentTypography: RectContentTypography;
 }
@@ -75,12 +89,30 @@ export interface TextNode extends BaseNode {
   type: "text";
   text: string;
   color: string;
+  textShadow: TextShadowStyle;
   paddingX: number;
   paddingY: number;
   typography: Typography;
 }
 
 export type CanvasNode = RectNode | TextNode;
+
+export const DEFAULT_TEXT_SHADOW_STYLE: TextShadowStyle = {
+  enabled: false,
+  x: 0,
+  y: 8,
+  blur: 16,
+  color: "#000000",
+  opacity: 0.35,
+};
+
+export const DEFAULT_BOX_SHADOW_STYLE: BoxShadowStyle = {
+  ...DEFAULT_TEXT_SHADOW_STYLE,
+  y: 10,
+  blur: 24,
+  spread: 0,
+  opacity: 0.22,
+};
 
 export const DEFAULT_RECT_NODE: RectNode = {
   id: "default-rect",
@@ -89,6 +121,7 @@ export const DEFAULT_RECT_NODE: RectNode = {
   size: { width: 100, height: 100 },
   backgroundImage: undefined,
   backgroundSize: "cover",
+  boxShadow: { ...DEFAULT_BOX_SHADOW_STYLE },
   bgColor: "#ffffff",
   radius: 0,
   borderWidth: 0,
@@ -130,6 +163,7 @@ export const DEFAULT_TEXT_NODE: TextNode = {
   replayEntranceOnStepChange: false,
   text: "Text",
   color: "#ffffff",
+  textShadow: { ...DEFAULT_TEXT_SHADOW_STYLE },
   paddingX: 0,
   paddingY: 0,
   bgColor: "transparent",
