@@ -84,6 +84,36 @@ Mind Canvas는 AI와 함께 쓰기에도 잘 맞습니다.
 
 이 예제들은 실제 서비스 사용 장면을 상상해보기에 좋은 출발점입니다.
 
+## 단축키
+
+### 도구
+
+- `Q`: 선택
+- `W`: 박스
+- `E`: 텍스트
+- `R`: 화살표
+
+### 편집
+
+- `Cmd/Ctrl + C`: 선택 복사
+- `Cmd/Ctrl + X`: 선택 잘라내기
+- `Cmd/Ctrl + D`: 선택 복제
+- `Backspace`: 선택 삭제
+- `Cmd/Ctrl + Z`: 실행 취소
+- `Cmd/Ctrl + Shift + Z`: 다시 실행
+
+### Step / 화면 이동
+
+- `1` 또는 `Left`: 이전 step
+- `2` 또는 `Right`: 다음 step
+- `Down`: 첫 step으로 이동
+- `Up`: 마지막 step으로 이동
+- `H`: 이전 step overlay 표시/숨기기
+- `P`: 프레젠테이션 모드
+- `F`: 선택 노드 포커스
+- `C`: viewport 원점 리셋
+- `F1`: 단축키 도움말
+
 ## 핵심 가치
 
 Mind Canvas는 결국 더 나은 커뮤니케이션을 위한 서비스입니다.

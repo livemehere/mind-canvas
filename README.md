@@ -85,6 +85,36 @@ The `examples/` directory includes ready-made samples for different storytelling
 
 These examples are useful as inspiration for real presentation scenarios.
 
+## Keyboard Shortcuts
+
+### Tools
+
+- `Q`: select
+- `W`: box
+- `E`: text
+- `R`: arrow
+
+### Edit
+
+- `Cmd/Ctrl + C`: copy selection
+- `Cmd/Ctrl + X`: cut selection
+- `Cmd/Ctrl + D`: duplicate selection
+- `Backspace`: delete selection
+- `Cmd/Ctrl + Z`: undo
+- `Cmd/Ctrl + Shift + Z`: redo
+
+### Steps and View
+
+- `1` or `Left`: previous step
+- `2` or `Right`: next step
+- `Down`: jump to first step
+- `Up`: jump to last step
+- `H`: toggle previous-step overlay
+- `P`: presentation mode
+- `F`: focus selected nodes
+- `C`: reset viewport to origin
+- `F1`: shortcut help
+
 ## Focus
 
 Mind Canvas is ultimately a service for better communication.
