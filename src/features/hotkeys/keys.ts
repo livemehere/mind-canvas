@@ -16,6 +16,6 @@ export const HOTKEY_ESCAPE = "escape";
 export const HOTKEY_DELETE_NODE = "backspace";
 export const HOTKEY_REMOVE_SNAPSHOT = "meta+backspace,ctrl+backspace";
 export const HOTKEY_SAVE_SNAPSHOTS = "meta+s,ctrl+s";
-export const HOTKEY_RESET_VIEWPORT_TO_ORIGIN = "meta+0,ctrl+0";
+export const HOTKEY_RESET_VIEWPORT_TO_ORIGIN = "c";
 export const HOTKEY_PREVIOUS_STEP = "1,left";
 export const HOTKEY_NEXT_STEP = "2,right";
