@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useMemo, useRef } from "react";
 import {
   type CanvasEdge,
   type CanvasNode,
@@ -258,7 +259,21 @@ export function CanvasEdgeLayer({
   entranceRun = 0,
   onEdgePointerDown,
 }: Props) {
+  const edgeRenderRunRef = useRef<Record<string, number>>({});
   const nodeMap = new Map(nodes.map((node) => [node.id, node] as const));
+
+  const edgeKeyRunById = useMemo(() => {
+    const nextRuns: Record<string, number> = {};
+
+    edges.forEach((edge) => {
+      const previousRun = edgeRenderRunRef.current[edge.id] ?? 0;
+      const shouldPlayEntrance = entranceEdgeIds.includes(edge.id);
+      nextRuns[edge.id] = shouldPlayEntrance ? entranceRun : previousRun;
+    });
+
+    edgeRenderRunRef.current = nextRuns;
+    return nextRuns;
+  }, [edges, entranceEdgeIds, entranceRun]);
 
   const renderedEdges = edges
     .map((edge) => {
@@ -390,7 +405,7 @@ export function CanvasEdgeLayer({
         const highlightColor = isSelected ? "#ffbe5c" : edge.color;
 
         return (
-          <g key={shouldPlayEntrance ? `${edge.id}:entrance:${entranceRun}` : edge.id}>
+          <g key={`${edge.id}:entrance:${edgeKeyRunById[edge.id] ?? 0}`}>
             <motion.path
               d={d}
               initial={initial}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import { type CanvasEdge, type CanvasNode, type Snapshot } from "../../core/nodes";
@@ -58,18 +58,7 @@ export const useSnapshotState = () => {
   const currentHistory =
     histories[step] ?? createStepHistory(currentNodes, currentEdges);
 
-  useEffect(() => {
-    latestStateRef.current = {
-      step,
-      snapShot,
-      histories,
-      activeNodeIds,
-      activeEdgeIds,
-      autoAddSnapshotOnAdvance,
-      duplicateNodesIntoNewSnapshot,
-      syncMatchingIdEdits,
-    };
-  }, [
+  latestStateRef.current = {
     step,
     snapShot,
     histories,
@@ -78,7 +67,7 @@ export const useSnapshotState = () => {
     autoAddSnapshotOnAdvance,
     duplicateNodesIntoNewSnapshot,
     syncMatchingIdEdits,
-  ]);
+  };
 
   const commitNodesToStep = (
     targetStep: number,
