@@ -187,16 +187,20 @@ Edge Geometry Notes (from current renderer)
 - If sourceAnchor/targetAnchor is "auto", anchor side is chosen by center-to-center direction:
   - horizontal dominance => left/right
   - vertical dominance => top/bottom
-- Text node bounds are estimated (not exact glyph bounds):
-  - width ~= max(120, fontSize * 2.5 + paddingX * 2) * scale
-  - height ~= max((fontSize * lineHeight + paddingY * 2) * scale, 32)
+- Text node bounds are measured from actual rendered DOM for edge anchor positioning.
+- Text edge anchors are rendered with an outward gutter so arrowheads are less likely to be hidden by text backgrounds.
 - For cleaner lines, prefer explicit anchors on structured layouts:
   - horizontal chains: sourceAnchor="right", targetAnchor="left", route="straight"
   - vertical chains: sourceAnchor="bottom", targetAnchor="top", route="straight"
   - mixed directions: route="elbow" can reduce visual overlap
-- Recommended minimum spacing to reduce edge crowding:
-  - horizontal node-gap: 260+
-  - vertical node-gap: 170+
+- Recommended spacing to reduce edge crowding (presentation-safe defaults):
+  - horizontal node-gap: 360+
+  - vertical node-gap: 220+
+
+Curve and Route Authoring Notes
+- curve only affects edges when route is "curve".
+- If visual intent is "stronger bend", set route="curve" and then raise curve.
+- For direct process flows, keep route="straight" and ignore curve.
 
 Layout Hygiene Rules
 - Default to fewer nodes over decorative density.
@@ -204,6 +208,27 @@ Layout Hygiene Rules
 - Prefer text nodes for labels/chips/titles when a box shape is not required.
 - Keep scenes center-aligned around (0,0) unless prompt requests asymmetry.
 - If a step uses many edges, increase node spacing before adding more curves.
+- For readability, keep one dominant message per step.
+- Prefer 3-5 key nodes per step for live presentations.
+
+Text Sizing and Gap Heuristics
+- Large title text (60-82): keep at y around -320 to -220.
+- Section/body text (30-44): keep vertical gaps of 80-110 between rows.
+- Label chips (30-36 with padding): keep horizontal gaps of 340-460 between centers.
+- When text has multi-line content, increase surrounding node distance before adding edges.
+
+Practical Step Patterns (recommended)
+- 2-step pattern: (1) overview, (2) takeaway.
+- 3-step pattern: (1) context, (2) mechanism/flow, (3) summary.
+- 4-step pattern: (1) problem, (2) solution, (3) proof, (4) action.
+
+Usecase Topics That Work Well
+- Startup/investor pitch
+- Product launch plan
+- Technical architecture walkthrough
+- Education lesson summary
+- Marketing campaign storyboard
+- Career roadmap / competency matrix
 
 Component Mode Notes
 - If contentKind is "component", set:
@@ -236,6 +261,8 @@ Agent Prompting Template
   - Ensure all edges reference existing nodes.
   - Keep layouts centered and readable around origin.
   - Prefer explicit anchors when a linear flow is intended.
+  - Prefer spacious node placement for stable edge readability.
+  - Avoid decorative background nodes unless explicitly requested.
 
 - User prompt example:
   - "Create a 4-step snapshot JSON explaining how photosynthesis works. Step 1: context, Step 2: light reaction, Step 3: Calvin cycle, Step 4: summary. Use mostly text nodes and a few connecting edges."
